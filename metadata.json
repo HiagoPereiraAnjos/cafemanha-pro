@@ -1,0 +1,7 @@
+{
+  "name": "Hotel Breakfast Control Pro",
+  "description": "A comprehensive hotel breakfast management system with QR validation, bulk import, and real-time statistics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
