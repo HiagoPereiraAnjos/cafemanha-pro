@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { storageService } from '../services/storageService';
+import { supabaseService } from '../services/supabaseService';
 import { Guest, AppStats } from '../types';
 import { StatCard, Alert, Button } from '../components/Shared';
 import { Users, DoorClosed, Coffee, CheckCircle2, Search, X, Download, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
@@ -8,11 +8,17 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
+const SUPABASE_QUERY_ENABLED_KEY = 'reception_can_query_supabase';
+
 const Reception: React.FC = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [importData, setImportData] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [previewList, setPreviewList] = useState<any[]>([]);
+  const [previewList, setPreviewList] = useState<Omit<Guest, 'id' | 'createdAt'>[]>([]);
+  const [isSavingImport, setIsSavingImport] = useState(false);
+  const [canQuerySupabase, setCanQuerySupabase] = useState(
+    () => localStorage.getItem(SUPABASE_QUERY_ENABLED_KEY) === '1'
+  );
   const [filter, setFilter] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
@@ -23,38 +29,40 @@ const Reception: React.FC = () => {
     usedTodayCount: 0
   });
 
-  const loadData = () => {
-    const data = storageService.getGuests();
+  const loadData = async (force = false) => {
+    if (!canQuerySupabase && !force) return;
+
+    const result = await supabaseService.getGuests();
+    if (!result.ok) {
+      alert(`Erro ao carregar hóspedes do Supabase: ${result.error}`);
+      return;
+    }
+
+    const data = result.data || [];
     setGuests(data);
-    
-    const uniqueRooms = new Set(data.map(g => g.room));
+
+    const uniqueRooms = new Set(data.map((g) => g.room));
     const today = new Date().toISOString().split('T')[0];
-    
+
     setStats({
       totalGuests: data.length,
       totalRooms: uniqueRooms.size,
-      withBreakfast: data.filter(g => g.hasBreakfast).length,
-      usedTodayCount: data.filter(g => g.usedToday && g.consumptionDate === today).length
+      withBreakfast: data.filter((g) => g.hasBreakfast).length,
+      usedTodayCount: data.filter(
+        (g) => g.usedToday && g.consumptionDate === today
+      ).length,
     });
   };
 
   useEffect(() => {
-    loadData();
-    
-    // Sincronização instantânea entre abas/dispositivos
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'hotel_breakfast_guests') {
-        loadData();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
+    if (!canQuerySupabase) return;
 
-    const interval = setInterval(loadData, 5000);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [canQuerySupabase]);
 
   const handleImport = () => {
     if (!importData.trim()) return;
@@ -78,7 +86,7 @@ const Reception: React.FC = () => {
         name, room, company, checkIn, checkOut, tariff, plan,
         hasBreakfast, usedToday: false, consumptionDate: today
       };
-    }).filter(x => x !== null);
+    }).filter((x): x is Omit<Guest, 'id' | 'createdAt'> => x !== null);
 
     if (parsed.length === 0) {
       alert('Nenhum dado válido encontrado para importar. Certifique-se de copiar as colunas do Excel.');
@@ -89,22 +97,46 @@ const Reception: React.FC = () => {
     setShowPreview(true);
   };
 
-  const confirmImport = () => {
-    storageService.bulkInsert(previewList);
-    setImportData('');
-    setShowPreview(false);
-    loadData();
-    alert('Dados importados com sucesso!');
+  const confirmImport = async () => {
+    setIsSavingImport(true);
+    try {
+      const resetResult = await supabaseService.resetGuests();
+      if (!resetResult.ok) {
+        alert(`Falha ao substituir dados no Supabase (etapa limpar): ${resetResult.error}`);
+        return;
+      }
+
+      const insertResult = await supabaseService.insertGuests(previewList);
+      if (!insertResult.ok) {
+        alert(`Falha ao substituir dados no Supabase (etapa inserir): ${insertResult.error}`);
+        return;
+      }
+
+      localStorage.setItem(SUPABASE_QUERY_ENABLED_KEY, '1');
+      setCanQuerySupabase(true);
+      setImportData('');
+      setShowPreview(false);
+      await loadData(true);
+      alert('Dados substituídos com sucesso no Supabase!');
+    } finally {
+      setIsSavingImport(false);
+    }
   };
 
   const filteredGuests = useMemo(() => {
     const term = filter.trim().toLowerCase();
-    if (!term) return guests;
+    const byRoomAsc = (a: Guest, b: Guest) =>
+      a.room.localeCompare(b.room, 'pt-BR', { numeric: true, sensitivity: 'base' }) ||
+      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
 
-    return guests.filter(g => 
-      g.name.toLowerCase().includes(term) || 
-      g.room.toLowerCase().includes(term)
-    );
+    if (!term) return [...guests].sort(byRoomAsc);
+
+    return guests
+      .filter(g =>
+        g.name.toLowerCase().includes(term) ||
+        g.room.toLowerCase().includes(term)
+      )
+      .sort(byRoomAsc);
   }, [guests, filter]);
 
   const exportToExcel = () => {
@@ -174,8 +206,36 @@ const Reception: React.FC = () => {
           <p className="text-slate-500">Gestão de hóspedes e direitos ao café da manhã</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => { if(confirm('Deseja realmente limpar todos os dados?')) { storageService.resetDatabase(); loadData(); } }}>Limpar Tudo</Button>
-          <Button variant="success" onClick={loadData}>Atualizar</Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              if (!canQuerySupabase) {
+                alert('Importe a planilha primeiro para habilitar consultas no Supabase.');
+                return;
+              }
+              if (!confirm('Deseja realmente limpar todos os dados?')) return;
+              const resetResult = await supabaseService.resetGuests();
+              if (!resetResult.ok) {
+                alert(`Falha ao limpar dados no Supabase: ${resetResult.error}`);
+                return;
+              }
+              await loadData();
+            }}
+          >
+            Limpar Tudo
+          </Button>
+          <Button
+            variant="success"
+            onClick={() => {
+              if (!canQuerySupabase) {
+                alert('Importe a planilha primeiro para habilitar consultas no Supabase.');
+                return;
+              }
+              void loadData();
+            }}
+          >
+            Atualizar
+          </Button>
         </div>
       </header>
 
@@ -232,7 +292,14 @@ const Reception: React.FC = () => {
               </table>
             </div>
             <div className="flex gap-2">
-              <Button variant="success" onClick={confirmImport} className="flex-1">Confirmar e Salvar no Sistema</Button>
+              <Button
+                variant="success"
+                onClick={confirmImport}
+                className="flex-1"
+                disabled={isSavingImport}
+              >
+                {isSavingImport ? 'Salvando...' : 'Confirmar e Salvar no Sistema'}
+              </Button>
               <Button variant="secondary" onClick={() => setShowPreview(false)}>Cancelar</Button>
             </div>
           </div>

@@ -1,9 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
-import { storageService } from '../services/storageService';
+import React, { useState } from 'react';
+import { supabaseService } from '../services/supabaseService';
 import { Guest } from '../types';
 import { Alert, Button } from '../components/Shared';
-import { Coffee, Search, User as UserIcon, MapPin, ArrowLeft } from 'lucide-react';
+import { Coffee, User as UserIcon, MapPin, ArrowLeft } from 'lucide-react';
 import QRCode from 'qrcode';
 
 const GuestView: React.FC = () => {
@@ -11,6 +10,7 @@ const GuestView: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
 
   const encodeToken = (data: any) => {
@@ -19,7 +19,9 @@ const GuestView: React.FC = () => {
   };
 
   const resolveBaseUrl = () => {
-    const envBase = (import.meta as any).env?.VITE_PUBLIC_BASE_URL as string | undefined;
+    const envBase = (import.meta as any).env?.VITE_PUBLIC_BASE_URL as
+      | string
+      | undefined;
     if (envBase && envBase.trim().length > 0) {
       return envBase.trim();
     }
@@ -43,33 +45,40 @@ const GuestView: React.FC = () => {
 
   const handleIdentifyGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const all = storageService.getGuests();
-    const today = new Date().toISOString().split('T')[0];
+    setIsLoading(true);
 
-    const found = all.find(g => 
-      g.room.trim() === room.trim() && 
-      g.name.trim().toLowerCase() === fullName.trim().toLowerCase()
-    );
-
-    if (!found) {
-      alert('Hóspede não encontrado. Verifique se o número do quarto e o nome completo estão corretos conforme o registro na recepção.');
-      return;
-    }
-
-    if (!found.hasBreakfast) {
-      alert('Este registro não possui direito ao café da manhã incluso na tarifa.');
-      return;
-    }
-
-    const alreadyUsed = found.usedToday && found.consumptionDate === today;
-    if (alreadyUsed) {
-      alert('O café da manhã para este hóspede já foi registrado hoje.');
-      return;
-    }
-
-    const url = generateValidationUrl(found);
     try {
+      const today = new Date().toISOString().split('T')[0];
+      const result = await supabaseService.findGuestByRoomAndName(
+        room,
+        fullName
+      );
+
+      if (!result.ok) {
+        alert(`Falha ao consultar hóspede no Supabase: ${result.error}`);
+        return;
+      }
+
+      const found = result.data;
+      if (!found) {
+        alert(
+          'Hóspede não encontrado. Verifique se o número do quarto e o nome completo estão corretos conforme o registro na recepção.'
+        );
+        return;
+      }
+
+      if (!found.hasBreakfast) {
+        alert('Este registro não possui direito ao café da manhã incluso na tarifa.');
+        return;
+      }
+
+      const alreadyUsed = found.usedToday && found.consumptionDate === today;
+      if (alreadyUsed) {
+        alert('O café da manhã para este hóspede já foi registrado hoje.');
+        return;
+      }
+
+      const url = generateValidationUrl(found);
       const dataUrl = await QRCode.toDataURL(url, {
         width: 300,
         margin: 2,
@@ -78,12 +87,15 @@ const GuestView: React.FC = () => {
           light: '#ffffff',
         },
       });
+
       setQrCodeDataUrl(dataUrl);
       setSelectedGuest(found);
       setStep(3);
     } catch (err) {
       console.error(err);
       alert('Erro ao gerar QR Code. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -98,9 +110,14 @@ const GuestView: React.FC = () => {
       </header>
 
       {step === 1 && (
-        <form onSubmit={handleIdentifyGuest} className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 animate-in slide-in-from-bottom-4 space-y-5">
+        <form
+          onSubmit={handleIdentifyGuest}
+          className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 animate-in slide-in-from-bottom-4 space-y-5"
+        >
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Número do Apartamento</label>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+              Número do Apartamento
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -110,12 +127,17 @@ const GuestView: React.FC = () => {
                 placeholder="Ex: 101"
                 className="w-full pl-12 pr-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-blue-500 focus:outline-none transition-all text-lg font-bold text-slate-700"
               />
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+              <MapPin
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"
+                size={20}
+              />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Nome Completo</label>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">
+              Nome Completo
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -125,14 +147,24 @@ const GuestView: React.FC = () => {
                 placeholder="Como registrado no check-in"
                 className="w-full pl-12 pr-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-blue-500 focus:outline-none transition-all text-lg font-bold text-slate-700"
               />
-              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+              <UserIcon
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"
+                size={20}
+              />
             </div>
           </div>
 
-          <Alert type="info" message="Dica: O nome deve ser exatamente igual ao que consta na sua reserva." />
+          <Alert
+            type="info"
+            message="Dica: O nome deve ser exatamente igual ao que consta na sua reserva."
+          />
 
-          <Button type="submit" className="w-full py-4 text-lg shadow-blue-200">
-            Gerar Acesso
+          <Button
+            type="submit"
+            className="w-full py-4 text-lg shadow-blue-200"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Consultando...' : 'Gerar Acesso'}
           </Button>
         </form>
       )}
@@ -143,31 +175,49 @@ const GuestView: React.FC = () => {
             <CheckCircle2 size={56} />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">Acesso Pronto!</h2>
-          <p className="text-slate-500 mt-2">Olá, <span className="font-bold text-slate-800">{selectedGuest.name}</span>.<br/>Apresente o código abaixo no restaurante.</p>
-          
+          <p className="text-slate-500 mt-2">
+            Olá, <span className="font-bold text-slate-800">{selectedGuest.name}</span>.
+            <br />
+            Apresente o código abaixo no restaurante.
+          </p>
+
           <div className="my-8 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center">
-             <div className="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
-                <img src={qrCodeDataUrl} alt="QR Code de Acesso" className="w-56 h-56 object-contain" />
-             </div>
-             <div className="mt-4 flex flex-col items-center gap-1">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Válido para</span>
-                <span className="text-sm font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full">QUARTO {selectedGuest.room}</span>
-             </div>
+            <div className="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
+              <img
+                src={qrCodeDataUrl}
+                alt="QR Code de Acesso"
+                className="w-56 h-56 object-contain"
+              />
+            </div>
+            <div className="mt-4 flex flex-col items-center gap-1">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">
+                Válido para
+              </span>
+              <span className="text-sm font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                QUARTO {selectedGuest.room}
+              </span>
+            </div>
           </div>
 
-          <Alert type="warning" message="Este código expira ao final do horário do café de hoje." />
-          
+          <Alert
+            type="warning"
+            message="Este código expira ao final do horário do café de hoje."
+          />
+
           <div className="space-y-3">
-            <Button 
-              className="w-full py-4 text-lg" 
+            <Button
+              className="w-full py-4 text-lg"
               variant="primary"
               onClick={() => window.open(generateValidationUrl(selectedGuest), '_blank')}
             >
               Simular Leitura (Validar)
             </Button>
-            
-            <button 
-              onClick={() => { setStep(1); setSelectedGuest(null); }}
+
+            <button
+              onClick={() => {
+                setStep(1);
+                setSelectedGuest(null);
+              }}
               className="flex items-center justify-center gap-2 w-full py-2 text-slate-400 font-bold hover:text-slate-600 transition-colors"
             >
               <ArrowLeft size={16} /> Corrigir dados
@@ -179,9 +229,23 @@ const GuestView: React.FC = () => {
   );
 };
 
-const CheckCircle2: React.FC<{ className?: string; size?: number }> = ({ className, size = 24 }) => (
-  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/>
+const CheckCircle2: React.FC<{ className?: string; size?: number }> = ({
+  className,
+  size = 24,
+}) => (
+  <svg
+    className={className}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+    <path d="m9 12 2 2 4-4" />
   </svg>
 );
 

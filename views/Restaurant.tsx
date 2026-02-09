@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { storageService } from '../services/storageService';
+import { supabaseService } from '../services/supabaseService';
 import { Guest, AppStats } from '../types';
 import { StatCard, Alert, Button } from '../components/Shared';
 import { Users, DoorClosed, Coffee, CheckCircle2, Search, X, Download, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
@@ -20,24 +20,34 @@ const Restaurant: React.FC = () => {
     usedTodayCount: 0
   });
 
-  const loadData = () => {
-    const data = storageService.getGuests();
+  const loadData = async () => {
+    const result = await supabaseService.getGuests();
+    if (!result.ok) {
+      alert(`Erro ao carregar hóspedes do Supabase: ${result.error}`);
+      return;
+    }
+
+    const data = result.data || [];
     setGuests(data);
-    
-    const uniqueRooms = new Set(data.map(g => g.room));
+
+    const uniqueRooms = new Set(data.map((g) => g.room));
     const today = new Date().toISOString().split('T')[0];
-    
+
     setStats({
       totalGuests: data.length,
       totalRooms: uniqueRooms.size,
-      withBreakfast: data.filter(g => g.hasBreakfast).length,
-      usedTodayCount: data.filter(g => g.usedToday && g.consumptionDate === today).length
+      withBreakfast: data.filter((g) => g.hasBreakfast).length,
+      usedTodayCount: data.filter(
+        (g) => g.usedToday && g.consumptionDate === today
+      ).length,
     });
   };
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 3000);
+    void loadData();
+    const interval = setInterval(() => {
+      void loadData();
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
