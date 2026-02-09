@@ -2,7 +2,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { UserRole } from './types';
-import AuthGuard from './views/auth-guard';
+import AuthGuard from './views/AuthGuard';
 import Reception from './views/Reception';
 import Restaurant from './views/Restaurant';
 import GuestView from './views/Guest';
