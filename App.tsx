@@ -6,6 +6,7 @@ import AuthGuard from './views/AuthGuard';
 import Reception from './views/Reception';
 import Restaurant from './views/Restaurant';
 import GuestView from './views/Guest';
+import RoomAccess from './views/RoomAccess';
 import Validate from './views/Validate';
 import { LayoutDashboard, Utensils, User, QrCode } from 'lucide-react';
 
@@ -71,6 +72,7 @@ const App: React.FC = () => {
             {/* Fixed: UserRole key was RESTAURANTE (value), should be RESTAURANT (key) */}
             <Route path="/restaurante" element={<AuthGuard role={UserRole.RESTAURANT}><Restaurant /></AuthGuard>} />
             <Route path="/hospede" element={<GuestView />} />
+            <Route path="/acesso-quarto" element={<RoomAccess />} />
             {/* Fixed: UserRole key was VALIDAR (value), should be VALIDATOR (key) */}
             <Route path="/validar" element={<AuthGuard role={UserRole.VALIDATOR}><Validate /></AuthGuard>} />
           </Routes>

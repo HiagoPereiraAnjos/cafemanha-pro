@@ -101,6 +101,14 @@ const normalizeIdValue = (id: string | number) => {
   return trimmed;
 };
 
+const normalizeGuestName = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const guestToRow = (guest: Guest): GuestRow => ({
   id: normalizeIdValue(guest.id),
   name: guest.name,
@@ -182,6 +190,26 @@ export const supabaseService = {
     return { ok: true, data: guests };
   },
 
+  getGuestsByRoom: async (room: string): Promise<ServiceResult<Guest[]>> => {
+    const client = ensureClient();
+    if (!client.ok) return client;
+    const tableResult = await resolveTableName();
+    if (!tableResult.ok) return tableResult;
+    const tableName = tableResult.data!;
+
+    const roomValue = room.trim();
+    if (!roomValue) return { ok: true, data: [] };
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('room', roomValue)
+      .order('name', { ascending: true });
+
+    if (error) return { ok: false, error: formatError(error) };
+    return { ok: true, data: ((data || []) as GuestRow[]).map(rowToGuest) };
+  },
+
   getGuestById: async (id: string): Promise<ServiceResult<Guest | null>> => {
     const client = ensureClient();
     if (!client.ok) return client;
@@ -210,7 +238,7 @@ export const supabaseService = {
     const tableName = tableResult.data!;
 
     const roomValue = room.trim();
-    const nameValue = fullName.trim().toLowerCase();
+    const nameValue = normalizeGuestName(fullName);
 
     const { data, error } = await supabase
       .from(tableName)
@@ -221,7 +249,7 @@ export const supabaseService = {
 
     const found =
       ((data || []) as GuestRow[]).find(
-        (g) => (g.name || '').trim().toLowerCase() === nameValue
+        (g) => normalizeGuestName(g.name || '') === nameValue
       ) || null;
 
     return { ok: true, data: found ? rowToGuest(found) : null };

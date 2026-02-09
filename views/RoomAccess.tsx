@@ -1,0 +1,278 @@
+﻿import React, { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import QRCodeLib from 'qrcode';
+import { Coffee, QrCode, RefreshCw, ArrowLeft } from 'lucide-react';
+import { supabaseService } from '../services/supabaseService';
+import { Guest } from '../types';
+import { Alert, Button } from '../components/Shared';
+
+type Feedback = {
+  type: 'success' | 'error' | 'info' | 'warning';
+  message: string;
+};
+
+const getRoomFromParams = (searchParams: URLSearchParams) =>
+  (
+    searchParams.get('room') ||
+    searchParams.get('apto') ||
+    searchParams.get('quarto') ||
+    ''
+  ).trim();
+
+const encodeToken = (data: unknown) =>
+  btoa(encodeURIComponent(JSON.stringify(data)));
+
+const resolveBaseUrl = () => {
+  const envBase = (import.meta as any).env?.VITE_PUBLIC_BASE_URL as
+    | string
+    | undefined;
+  if (envBase && envBase.trim().length > 0) {
+    return envBase.trim();
+  }
+  return window.location.href;
+};
+
+const generateValidationUrl = (guest: Guest) => {
+  const tokenData = { id: guest.id, t: Date.now(), h: guest.room };
+  const token = encodeToken(tokenData);
+  const baseUrl = resolveBaseUrl();
+
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    url = new URL(baseUrl, window.location.origin);
+  }
+
+  url.search = '';
+  url.hash = `/validar?id=${guest.id}&token=${token}`;
+  return url.toString();
+};
+
+const RoomAccess: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const roomFromUrl = getRoomFromParams(searchParams);
+
+  const [roomGuests, setRoomGuests] = useState<Guest[]>([]);
+  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  const today = new Date().toISOString().split('T')[0];
+  const isUsedToday = (guest: Guest) =>
+    guest.usedToday && guest.consumptionDate === today;
+
+  useEffect(() => {
+    setSelectedGuest(null);
+    setQrCodeDataUrl('');
+    setFeedback(null);
+
+    if (!roomFromUrl) {
+      setRoomGuests([]);
+      return;
+    }
+
+    void loadGuestsByRoom(roomFromUrl);
+  }, [roomFromUrl]);
+
+  const loadGuestsByRoom = async (room: string) => {
+    setIsLoading(true);
+    const result = await supabaseService.getGuestsByRoom(room);
+
+    if (!result.ok) {
+      setRoomGuests([]);
+      setFeedback({
+        type: 'error',
+        message: `Falha ao consultar hospedes do quarto ${room}: ${result.error}`,
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const guests = result.data || [];
+    setRoomGuests(guests);
+
+    if (guests.length === 0) {
+      setFeedback({
+        type: 'warning',
+        message: `Nenhum hospede encontrado para o quarto ${room}.`,
+      });
+    } else {
+      setFeedback(null);
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleSelectGuest = async (guest: Guest) => {
+    if (!guest.hasBreakfast) {
+      setFeedback({
+        type: 'warning',
+        message: `${guest.name} nao possui direito ao cafe da manha.`,
+      });
+      return;
+    }
+
+    if (isUsedToday(guest)) {
+      setFeedback({
+        type: 'warning',
+        message: `O cafe da manha de ${guest.name} ja foi utilizado hoje.`,
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const validationUrl = generateValidationUrl(guest);
+      const dataUrl = await QRCodeLib.toDataURL(validationUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+
+      setSelectedGuest(guest);
+      setQrCodeDataUrl(dataUrl);
+      setFeedback(null);
+    } catch {
+      setFeedback({
+        type: 'error',
+        message: 'Erro ao gerar QR Code.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6 pb-20">
+      <header className="text-center">
+        <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-blue-200">
+          <Coffee size={40} />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-800">Cafe da Manha</h1>
+        <p className="text-slate-500">Selecione seu nome para gerar seu QR individual</p>
+      </header>
+
+      {feedback && <Alert type={feedback.type} message={feedback.message} />}
+
+      {!roomFromUrl && (
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-4 text-center">
+          <Alert
+            type="warning"
+            message="Link sem quarto informado. Leia o QR Code fixado no quarto."
+          />
+          <Link
+            to="/hospede"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Ir para area do hospede
+          </Link>
+        </div>
+      )}
+
+      {roomFromUrl && !selectedGuest && (
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-slate-400 font-black">
+                Quarto
+              </p>
+              <h2 className="text-3xl font-black text-slate-800">{roomFromUrl}</h2>
+            </div>
+            <button
+              onClick={() => void loadGuestsByRoom(roomFromUrl)}
+              disabled={isLoading}
+              className="text-sm font-bold text-slate-500 hover:text-slate-700 disabled:opacity-50"
+            >
+              Atualizar lista
+            </button>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-slate-500">
+              <RefreshCw size={18} className="animate-spin" />
+              Carregando hospedes...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {roomGuests.map((guest) => {
+                const used = isUsedToday(guest);
+                return (
+                  <div
+                    key={guest.id}
+                    className="border border-slate-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                  >
+                    <div>
+                      <div className="font-bold text-slate-800">{guest.name}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {guest.hasBreakfast ? 'Cafe incluido' : 'Sem direito ao cafe'}
+                        {used ? ' - Ja utilizado hoje' : ''}
+                      </div>
+                    </div>
+
+                    <Button
+                      variant={guest.hasBreakfast && !used ? 'primary' : 'secondary'}
+                      onClick={() => void handleSelectGuest(guest)}
+                      disabled={!guest.hasBreakfast || used || isLoading}
+                    >
+                      {guest.hasBreakfast ? (used ? 'Utilizado' : 'Gerar QR') : 'Sem Direito'}
+                    </Button>
+                  </div>
+                );
+              })}
+
+              {roomGuests.length === 0 && (
+                <p className="text-sm text-slate-500">Nenhum hospede para este quarto.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedGuest && (
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 text-center">
+          <div className="text-blue-600 mb-4 flex justify-center">
+            <QrCode size={52} />
+          </div>
+
+          <h2 className="text-2xl font-bold text-slate-800">QR Gerado</h2>
+
+          <p className="text-slate-500 mt-2">
+            Hospede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
+          </p>
+          <p className="text-slate-500">
+            Quarto: <span className="font-bold text-slate-800">{selectedGuest.room}</span>
+          </p>
+
+          <div className="my-8 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center">
+            <div className="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
+              <img
+                src={qrCodeDataUrl}
+                alt="QR Code de Acesso"
+                className="w-56 h-56 object-contain"
+              />
+            </div>
+          </div>
+
+          <Alert
+            type="warning"
+            message="Apresente este QR no restaurante para validar seu cafe."
+          />
+
+          <button
+            onClick={() => {
+              setSelectedGuest(null);
+              setQrCodeDataUrl('');
+            }}
+            className="flex items-center justify-center gap-2 w-full py-2 text-slate-400 font-bold hover:text-slate-600 transition-colors"
+          >
+            <ArrowLeft size={16} /> Voltar para lista
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default RoomAccess;

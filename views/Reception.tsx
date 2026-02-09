@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabaseService } from '../services/supabaseService';
 import { Guest, AppStats } from '../types';
 import { StatCard, Alert, Button } from '../components/Shared';
-import { Users, DoorClosed, Coffee, CheckCircle2, Search, X, Download, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
+import { Users, DoorClosed, Coffee, CheckCircle2, Search, X, Download, FileSpreadsheet, FileText, ChevronDown, UserPlus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -19,8 +19,21 @@ const Reception: React.FC = () => {
   const [canQuerySupabase, setCanQuerySupabase] = useState(
     () => localStorage.getItem(SUPABASE_QUERY_ENABLED_KEY) === '1'
   );
+  const [manualName, setManualName] = useState('');
+  const [manualRoom, setManualRoom] = useState('');
+  const [manualCompany, setManualCompany] = useState('');
+  const [manualCheckIn, setManualCheckIn] = useState('');
+  const [manualCheckOut, setManualCheckOut] = useState('');
+  const [manualTariff, setManualTariff] = useState('');
+  const [manualPlan, setManualPlan] = useState('');
+  const [manualHasBreakfast, setManualHasBreakfast] = useState(true);
+  const [isSavingManual, setIsSavingManual] = useState(false);
   const [filter, setFilter] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+  } | null>(null);
 
   const [stats, setStats] = useState<AppStats>({
     totalGuests: 0,
@@ -120,6 +133,55 @@ const Reception: React.FC = () => {
       alert('Dados substituídos com sucesso no Supabase!');
     } finally {
       setIsSavingImport(false);
+    }
+  };
+
+  const handleManualAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const name = manualName.trim();
+    const room = manualRoom.trim();
+    if (!name || !room) {
+      alert('Informe pelo menos nome e quarto.');
+      return;
+    }
+
+    setIsSavingManual(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const guest: Omit<Guest, 'id' | 'createdAt'> = {
+        name,
+        room,
+        company: manualCompany.trim() || 'Particular',
+        checkIn: manualCheckIn || today,
+        checkOut: manualCheckOut || '',
+        tariff: manualTariff.trim(),
+        plan: manualPlan.trim(),
+        hasBreakfast: manualHasBreakfast,
+        usedToday: false,
+        consumptionDate: today,
+      };
+
+      const insertResult = await supabaseService.insertGuests([guest]);
+      if (!insertResult.ok) {
+        alert(`Falha ao cadastrar hóspede: ${insertResult.error}`);
+        return;
+      }
+
+      localStorage.setItem(SUPABASE_QUERY_ENABLED_KEY, '1');
+      setCanQuerySupabase(true);
+      setManualName('');
+      setManualRoom('');
+      setManualCompany('');
+      setManualCheckIn('');
+      setManualCheckOut('');
+      setManualTariff('');
+      setManualPlan('');
+      setManualHasBreakfast(true);
+      await loadData(true);
+      alert('Hóspede cadastrado com sucesso!');
+    } finally {
+      setIsSavingManual(false);
     }
   };
 
@@ -304,6 +366,85 @@ const Reception: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <UserPlus size={20} /> Cadastro Manual
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Use este formulario para incluir um hospede que nao veio na planilha.
+        </p>
+
+        <form onSubmit={handleManualAdd} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input
+              type="text"
+              placeholder="Nome do hospede *"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Quarto *"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualRoom}
+              onChange={(e) => setManualRoom(e.target.value)}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Empresa"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualCompany}
+              onChange={(e) => setManualCompany(e.target.value)}
+            />
+            <input
+              type="date"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualCheckIn}
+              onChange={(e) => setManualCheckIn(e.target.value)}
+            />
+            <input
+              type="date"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualCheckOut}
+              onChange={(e) => setManualCheckOut(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Tarifa"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={manualTariff}
+              onChange={(e) => setManualTariff(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Plano"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 md:col-span-2"
+              value={manualPlan}
+              onChange={(e) => setManualPlan(e.target.value)}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={manualHasBreakfast}
+              onChange={(e) => setManualHasBreakfast(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300"
+            />
+            Possui direito ao cafe da manha
+          </label>
+
+          <div className="flex justify-end">
+            <Button type="submit" variant="success" disabled={isSavingManual}>
+              {isSavingManual ? 'Salvando...' : 'Adicionar Hospede'}
+            </Button>
+          </div>
+        </form>
       </div>
 
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">

@@ -53,12 +53,18 @@ const Restaurant: React.FC = () => {
 
   const filteredGuests = useMemo(() => {
     const term = filter.trim().toLowerCase();
-    if (!term) return guests;
+    const byRoomAsc = (a: Guest, b: Guest) =>
+      a.room.localeCompare(b.room, 'pt-BR', { numeric: true, sensitivity: 'base' }) ||
+      a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
 
-    return guests.filter(g => 
-      g.name.toLowerCase().includes(term) || 
-      g.room.toLowerCase().includes(term)
-    );
+    if (!term) return [...guests].sort(byRoomAsc);
+
+    return guests
+      .filter(g =>
+        g.name.toLowerCase().includes(term) ||
+        g.room.toLowerCase().includes(term)
+      )
+      .sort(byRoomAsc);
   }, [guests, filter]);
 
   const exportToExcel = () => {
