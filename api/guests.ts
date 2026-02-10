@@ -1,6 +1,7 @@
 ﻿import { createClient } from '@supabase/supabase-js';
-import { Guest } from '../types';
-import { getSessionFromRequest, RoleKey } from './_session';
+import type { Guest } from '../types';
+import { getSessionFromRequest } from './_session.js';
+import type { RoleKey } from './_session.js';
 
 type GuestRow = {
   id: string | number | null;
@@ -411,3 +412,5 @@ export default async function handler(req: any, res: any) {
     });
   }
 }
+
+

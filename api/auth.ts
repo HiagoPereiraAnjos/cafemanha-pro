@@ -1,4 +1,5 @@
-﻿import { createSessionToken, RoleKey, serializeSessionCookie } from './_session';
+﻿import { createSessionToken, serializeSessionCookie } from './_session.js';
+import type { RoleKey } from './_session.js';
 
 type RolePasswords = Record<RoleKey, string>;
 
@@ -106,3 +107,5 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Set-Cookie', serializeSessionCookie(token, maxAgeSeconds));
   sendJson(res, 200, { ok: true });
 }
+
+
