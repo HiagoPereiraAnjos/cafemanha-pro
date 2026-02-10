@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { UserRole, AuthSession } from '../types';
-import { PASSWORDS, AUTH_EXPIRY_MS } from '../constants';
+import React, { useState } from 'react';
+import { UserRole } from '../types';
 import { Button } from '../components/Shared';
 import { Lock } from 'lucide-react';
 
@@ -13,32 +12,34 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const storageKey = `auth_session_${role}`;
-
-  useEffect(() => {
-    const sessionStr = sessionStorage.getItem(storageKey);
-    if (sessionStr) {
-      const session: AuthSession = JSON.parse(sessionStr);
-      if (Date.now() - session.timestamp < AUTH_EXPIRY_MS) {
-        setIsAuthenticated(true);
-      }
-    }
-  }, [role, storageKey]);
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === PASSWORDS[role as keyof typeof PASSWORDS]) {
-      const session: AuthSession = {
-        role,
-        timestamp: Date.now(),
-        authenticated: true,
-      };
-      sessionStorage.setItem(storageKey, JSON.stringify(session));
-      setIsAuthenticated(true);
-      setError('');
-    } else {
-      setError('Senha incorreta.');
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, password }),
+      });
+
+      const payload = await response
+        .json()
+        .catch(() => ({ ok: false, error: 'Resposta invalida do servidor.' }));
+
+      if (response.ok && payload?.ok) {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      setError(payload?.error || 'Senha incorreta.');
+    } catch {
+      setError('Falha ao validar senha no servidor.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -64,10 +65,13 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
               placeholder="Digite a senha"
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               autoFocus
+              disabled={isSubmitting}
             />
           </div>
           {error && <p className="text-rose-600 text-sm font-medium">{error}</p>}
-          <Button type="submit" className="w-full">Acessar Sistema</Button>
+          <Button type="submit" className="w-full" disabled={isSubmitting || !password}>
+            {isSubmitting ? 'Validando...' : 'Acessar Sistema'}
+          </Button>
         </form>
       </div>
     </div>
