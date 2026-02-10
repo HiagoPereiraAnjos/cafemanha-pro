@@ -8,17 +8,12 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
-const SUPABASE_QUERY_ENABLED_KEY = 'reception_can_query_supabase';
-
 const Reception: React.FC = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [importData, setImportData] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [previewList, setPreviewList] = useState<Omit<Guest, 'id' | 'createdAt'>[]>([]);
   const [isSavingImport, setIsSavingImport] = useState(false);
-  const [canQuerySupabase, setCanQuerySupabase] = useState(
-    () => localStorage.getItem(SUPABASE_QUERY_ENABLED_KEY) === '1'
-  );
   const [manualName, setManualName] = useState('');
   const [manualRoom, setManualRoom] = useState('');
   const [manualCompany, setManualCompany] = useState('');
@@ -42,9 +37,7 @@ const Reception: React.FC = () => {
     usedTodayCount: 0
   });
 
-  const loadData = async (force = false) => {
-    if (!canQuerySupabase && !force) return;
-
+  const loadData = async () => {
     const result = await supabaseService.getGuests();
     if (!result.ok) {
       alert(`Erro ao carregar hóspedes do Supabase: ${result.error}`);
@@ -68,14 +61,12 @@ const Reception: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!canQuerySupabase) return;
-
     void loadData();
     const interval = setInterval(() => {
       void loadData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [canQuerySupabase]);
+  }, []);
 
   const handleImport = () => {
     if (!importData.trim()) return;
@@ -125,11 +116,9 @@ const Reception: React.FC = () => {
         return;
       }
 
-      localStorage.setItem(SUPABASE_QUERY_ENABLED_KEY, '1');
-      setCanQuerySupabase(true);
       setImportData('');
       setShowPreview(false);
-      await loadData(true);
+      await loadData();
       alert('Dados substituídos com sucesso no Supabase!');
     } finally {
       setIsSavingImport(false);
@@ -168,8 +157,6 @@ const Reception: React.FC = () => {
         return;
       }
 
-      localStorage.setItem(SUPABASE_QUERY_ENABLED_KEY, '1');
-      setCanQuerySupabase(true);
       setManualName('');
       setManualRoom('');
       setManualCompany('');
@@ -178,7 +165,7 @@ const Reception: React.FC = () => {
       setManualTariff('');
       setManualPlan('');
       setManualHasBreakfast(true);
-      await loadData(true);
+      await loadData();
       alert('Hóspede cadastrado com sucesso!');
     } finally {
       setIsSavingManual(false);
@@ -271,10 +258,6 @@ const Reception: React.FC = () => {
           <Button
             variant="secondary"
             onClick={async () => {
-              if (!canQuerySupabase) {
-                alert('Importe a planilha primeiro para habilitar consultas no Supabase.');
-                return;
-              }
               if (!confirm('Deseja realmente limpar todos os dados?')) return;
               const resetResult = await supabaseService.resetGuests();
               if (!resetResult.ok) {
@@ -289,10 +272,6 @@ const Reception: React.FC = () => {
           <Button
             variant="success"
             onClick={() => {
-              if (!canQuerySupabase) {
-                alert('Importe a planilha primeiro para habilitar consultas no Supabase.');
-                return;
-              }
               void loadData();
             }}
           >
