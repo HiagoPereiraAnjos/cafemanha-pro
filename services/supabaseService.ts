@@ -33,29 +33,68 @@ type GuestRow = {
 const env = (import.meta as any).env || {};
 const win = typeof window !== 'undefined' ? (window as any) : {};
 
-const supabaseUrl =
-  env.VITE_SUPABASE_URL ||
-  win.SUPABASE_URL ||
-  'https://nurjaxbqilrfczpgugfm.supabase.co';
-
-const supabaseAnonKey =
-  env.VITE_SUPABASE_ANON_KEY ||
-  env.VITE_SUPABASE_KEY ||
-  win.SUPABASE_KEY ||
+const DEFAULT_SUPABASE_URL = 'https://nurjaxbqilrfczpgugfm.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51cmpheGJxaWxyZmN6cGd1Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2MjIyNjEsImV4cCI6MjA3NjE5ODI2MX0.D0wwZePa8MtYGEncFtsqC88u30_Vt-7LuGMFRwIUqA0';
+
+const toCleanString = (value: unknown) =>
+  typeof value === 'string' ? value.trim() : '';
+
+const isPlaceholderValue = (value: string) =>
+  /^(SEU_|YOUR_|PLACEHOLDER)/i.test(value) ||
+  value.toUpperCase().includes('PLACEHOLDER');
+
+const isValidHttpUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const pickValidValue = (
+  candidates: unknown[],
+  validate?: (value: string) => boolean
+) => {
+  for (const candidate of candidates) {
+    const value = toCleanString(candidate);
+    if (!value || isPlaceholderValue(value)) continue;
+    if (validate && !validate(value)) continue;
+    return value;
+  }
+  return '';
+};
+
+const supabaseUrl = pickValidValue(
+  [env.VITE_SUPABASE_URL, win.SUPABASE_URL, DEFAULT_SUPABASE_URL],
+  isValidHttpUrl
+);
+
+const supabaseAnonKey = pickValidValue([
+  env.VITE_SUPABASE_ANON_KEY,
+  env.VITE_SUPABASE_KEY,
+  win.SUPABASE_KEY,
+  DEFAULT_SUPABASE_ANON_KEY,
+]);
 
 const configuredTableName =
   env.VITE_SUPABASE_TABLE || win.SUPABASE_TABLE || 'cafe_manha';
 let resolvedTableName: string | null = null;
 
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { persistSession: false },
-      })
-    : null;
+const supabaseConfigError = !supabaseUrl
+  ? 'Supabase URL invalida. Configure VITE_SUPABASE_URL com uma URL HTTP/HTTPS valida.'
+  : !supabaseAnonKey
+    ? 'Supabase key invalida. Configure VITE_SUPABASE_ANON_KEY.'
+    : '';
 
-const notConfiguredError = 'Supabase nao configurado.';
+const supabase = supabaseConfigError
+  ? null
+  : createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+    });
+
+const notConfiguredError = supabaseConfigError || 'Supabase nao configurado.';
 
 const ensureClient = () => {
   if (!supabase) {

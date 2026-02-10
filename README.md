@@ -30,6 +30,9 @@ VITE_SUPABASE_TABLE=cafe_manha
 VITE_PUBLIC_BASE_URL=https://cafemanha-pro.vercel.app/
 ```
 
+Nao use os valores literais `SEU_SUPABASE_URL` e `SEU_SUPABASE_ANON_KEY`.
+Substitua pelos valores reais do seu projeto no Supabase.
+
 ## Rodar localmente
 
 ```bash
@@ -56,4 +59,3 @@ npm run preview
 - Recepcao: importa planilha e salva hospedes no Supabase
 - Hospede: informa quarto/nome ou acessa link do quarto para gerar QR individual
 - Validar: leitura do QR e atualizacao de status para utilizado
-
