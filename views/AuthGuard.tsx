@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserRole } from '../types';
 import { Button } from '../components/Shared';
 import { Lock } from 'lucide-react';
@@ -9,10 +9,55 @@ interface Props {
 }
 
 const AuthGuard: React.FC<Props> = ({ role, children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authStatus, setAuthStatus] = useState<
+    'checking' | 'authenticated' | 'unauthenticated'
+  >('checking');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkSession = async () => {
+      setAuthStatus('checking');
+      setError('');
+
+      try {
+        const response = await fetch('/api/me');
+        const payload = await response
+          .json()
+          .catch(() => ({ authenticated: false }));
+
+        if (!mounted) return;
+
+        if (!response.ok) {
+          setAuthStatus('unauthenticated');
+          return;
+        }
+
+        if (payload?.authenticated && payload?.role === role) {
+          setAuthStatus('authenticated');
+          return;
+        }
+
+        if (payload?.authenticated && payload?.role && payload.role !== role) {
+          setError('Sessao ativa em outro perfil. Informe a senha deste modulo.');
+        }
+
+        setAuthStatus('unauthenticated');
+      } catch {
+        if (!mounted) return;
+        setAuthStatus('unauthenticated');
+      }
+    };
+
+    void checkSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, [role]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +76,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
         .catch(() => ({ ok: false, error: 'Resposta invalida do servidor.' }));
 
       if (response.ok && payload?.ok) {
-        setIsAuthenticated(true);
+        setAuthStatus('authenticated');
         return;
       }
 
@@ -43,7 +88,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
     }
   };
 
-  if (isAuthenticated) return <>{children}</>;
+  if (authStatus === 'authenticated') return <>{children}</>;
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -56,6 +101,11 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
           <p className="text-slate-500 mt-2">Acesso apenas para equipe {role.toLowerCase()}</p>
         </div>
 
+        {authStatus === 'checking' ? (
+          <div className="py-4 text-center text-slate-500 font-medium">
+            Verificando sessao...
+          </div>
+        ) : (
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <input
@@ -73,6 +123,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
             {isSubmitting ? 'Validando...' : 'Acessar Sistema'}
           </Button>
         </form>
+        )}
       </div>
     </div>
   );

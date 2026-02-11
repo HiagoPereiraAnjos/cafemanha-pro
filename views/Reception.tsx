@@ -1,18 +1,28 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabaseService } from '../services/supabaseService';
-import { Guest, AppStats } from '../types';
+import { Guest, GuestInsertInput, AppStats } from '../types';
 import { StatCard, Alert, Button } from '../components/Shared';
 import { Users, DoorClosed, Coffee, CheckCircle2, Search, X, Download, FileSpreadsheet, FileText, ChevronDown, UserPlus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
+type ReceptionStatusFilter = 'all' | 'with_breakfast' | 'without_breakfast' | 'used_today';
+
+const normalizeSearchText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const Reception: React.FC = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [importData, setImportData] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [previewList, setPreviewList] = useState<Omit<Guest, 'id' | 'createdAt'>[]>([]);
+  const [previewList, setPreviewList] = useState<GuestInsertInput[]>([]);
   const [isSavingImport, setIsSavingImport] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualRoom, setManualRoom] = useState('');
@@ -23,7 +33,9 @@ const Reception: React.FC = () => {
   const [manualPlan, setManualPlan] = useState('');
   const [manualHasBreakfast, setManualHasBreakfast] = useState(true);
   const [isSavingManual, setIsSavingManual] = useState(false);
-  const [filter, setFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ReceptionStatusFilter>('all');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info' | 'warning';
@@ -48,15 +60,12 @@ const Reception: React.FC = () => {
     setGuests(data);
 
     const uniqueRooms = new Set(data.map((g) => g.room));
-    const today = new Date().toISOString().split('T')[0];
 
     setStats({
       totalGuests: data.length,
       totalRooms: uniqueRooms.size,
       withBreakfast: data.filter((g) => g.hasBreakfast).length,
-      usedTodayCount: data.filter(
-        (g) => g.usedToday && g.consumptionDate === today
-      ).length,
+      usedTodayCount: data.filter((g) => g.usedToday).length,
     });
   };
 
@@ -68,10 +77,17 @@ const Reception: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
   const handleImport = () => {
     if (!importData.trim()) return;
     const lines = importData.trim().split('\n');
-    const today = new Date().toISOString().split('T')[0];
     
     const parsed = lines.map(line => {
       const cols = line.split('\t');
@@ -88,9 +104,9 @@ const Reception: React.FC = () => {
 
       return {
         name, room, company, checkIn, checkOut, tariff, plan,
-        hasBreakfast, usedToday: false, consumptionDate: today
+        hasBreakfast, consumptionDate: null
       };
-    }).filter((x): x is Omit<Guest, 'id' | 'createdAt'> => x !== null);
+    }).filter((x): x is GuestInsertInput => x !== null);
 
     if (parsed.length === 0) {
       alert('Nenhum dado válido encontrado para importar. Certifique-se de copiar as colunas do Excel.');
@@ -138,7 +154,7 @@ const Reception: React.FC = () => {
     setIsSavingManual(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const guest: Omit<Guest, 'id' | 'createdAt'> = {
+      const guest: GuestInsertInput = {
         name,
         room,
         company: manualCompany.trim() || 'Particular',
@@ -147,8 +163,7 @@ const Reception: React.FC = () => {
         tariff: manualTariff.trim(),
         plan: manualPlan.trim(),
         hasBreakfast: manualHasBreakfast,
-        usedToday: false,
-        consumptionDate: today,
+        consumptionDate: null,
       };
 
       const insertResult = await supabaseService.insertGuests([guest]);
@@ -173,20 +188,28 @@ const Reception: React.FC = () => {
   };
 
   const filteredGuests = useMemo(() => {
-    const term = filter.trim().toLowerCase();
+    const term = normalizeSearchText(debouncedSearch);
+    const terms = term.length > 0 ? term.split(' ').filter(Boolean) : [];
     const byRoomAsc = (a: Guest, b: Guest) =>
       a.room.localeCompare(b.room, 'pt-BR', { numeric: true, sensitivity: 'base' }) ||
       a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
 
-    if (!term) return [...guests].sort(byRoomAsc);
-
     return guests
-      .filter(g =>
-        g.name.toLowerCase().includes(term) ||
-        g.room.toLowerCase().includes(term)
-      )
+      .filter((g) => {
+        const matchesStatus =
+          statusFilter === 'all' ||
+          (statusFilter === 'with_breakfast' && g.hasBreakfast) ||
+          (statusFilter === 'without_breakfast' && !g.hasBreakfast) ||
+          (statusFilter === 'used_today' && g.usedToday);
+
+        if (!matchesStatus) return false;
+        if (terms.length === 0) return true;
+
+        const combined = normalizeSearchText(`${g.name} ${g.room}`);
+        return terms.every((searchTerm) => combined.includes(searchTerm));
+      })
       .sort(byRoomAsc);
-  }, [guests, filter]);
+  }, [guests, debouncedSearch, statusFilter]);
 
   const exportToExcel = () => {
     if (filteredGuests.length === 0) return;
@@ -437,16 +460,27 @@ const Reception: React.FC = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ReceptionStatusFilter)}
+              className="w-full sm:w-56 px-4 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
+            >
+              <option value="all">Todos os status</option>
+              <option value="with_breakfast">Com cafe</option>
+              <option value="without_breakfast">Sem cafe</option>
+              <option value="used_today">Ja consumiu</option>
+            </select>
+
             <div className="relative group w-full lg:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 type="text"
-                placeholder="Buscar por nome ou quarto..."
+                placeholder="Buscar por nome + quarto..."
                 className="w-full pl-11 pr-12 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all shadow-sm"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
-              {filter && <button onClick={() => setFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"><X size={18} /></button>}
+              {searchInput && <button onClick={() => setSearchInput('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"><X size={18} /></button>}
             </div>
 
             <div className="relative">

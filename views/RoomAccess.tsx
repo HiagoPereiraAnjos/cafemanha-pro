@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import QRCodeLib from 'qrcode';
 import { Coffee, QrCode, RefreshCw, ArrowLeft } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
-import { Guest } from '../types';
+import { PublicGuest } from '../types';
 import { Alert, Button } from '../components/Shared';
 
 type Feedback = {
@@ -19,9 +19,6 @@ const getRoomFromParams = (searchParams: URLSearchParams) =>
     ''
   ).trim();
 
-const encodeToken = (data: unknown) =>
-  btoa(encodeURIComponent(JSON.stringify(data)));
-
 const resolveBaseUrl = () => {
   const envBase = (import.meta as any).env?.VITE_PUBLIC_BASE_URL as
     | string
@@ -32,9 +29,7 @@ const resolveBaseUrl = () => {
   return window.location.href;
 };
 
-const generateValidationUrl = (guest: Guest) => {
-  const tokenData = { id: guest.id, t: Date.now(), h: guest.room };
-  const token = encodeToken(tokenData);
+const generateValidationUrl = (token: string) => {
   const baseUrl = resolveBaseUrl();
 
   let url: URL;
@@ -45,7 +40,7 @@ const generateValidationUrl = (guest: Guest) => {
   }
 
   url.search = '';
-  url.hash = `/validar?id=${guest.id}&token=${token}`;
+  url.hash = `/validar?token=${encodeURIComponent(token)}`;
   return url.toString();
 };
 
@@ -53,15 +48,13 @@ const RoomAccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const roomFromUrl = getRoomFromParams(searchParams);
 
-  const [roomGuests, setRoomGuests] = useState<Guest[]>([]);
-  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  const [roomGuests, setRoomGuests] = useState<PublicGuest[]>([]);
+  const [selectedGuest, setSelectedGuest] = useState<PublicGuest | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
-  const isUsedToday = (guest: Guest) =>
-    guest.usedToday && guest.consumptionDate === today;
+  const isUsedToday = (guest: PublicGuest) => guest.usedToday;
 
   useEffect(() => {
     setSelectedGuest(null);
@@ -105,7 +98,7 @@ const RoomAccess: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleSelectGuest = async (guest: Guest) => {
+  const handleSelectGuest = async (guest: PublicGuest) => {
     if (!guest.hasBreakfast) {
       setFeedback({
         type: 'warning',
@@ -124,7 +117,16 @@ const RoomAccess: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const validationUrl = generateValidationUrl(guest);
+      const issueTokenResult = await supabaseService.issueQrToken(guest.id);
+      if (!issueTokenResult.ok || !issueTokenResult.data?.token) {
+        setFeedback({
+          type: 'error',
+          message: `Falha ao emitir token seguro do QR: ${issueTokenResult.error || 'token ausente.'}`,
+        });
+        return;
+      }
+
+      const validationUrl = generateValidationUrl(issueTokenResult.data.token);
       const dataUrl = await QRCodeLib.toDataURL(validationUrl, {
         width: 300,
         margin: 2,
@@ -242,7 +244,7 @@ const RoomAccess: React.FC = () => {
             Hospede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
           </p>
           <p className="text-slate-500">
-            Quarto: <span className="font-bold text-slate-800">{selectedGuest.room}</span>
+            Quarto: <span className="font-bold text-slate-800">{roomFromUrl || '-'}</span>
           </p>
 
           <div className="my-8 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center">

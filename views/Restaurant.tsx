@@ -31,15 +31,12 @@ const Restaurant: React.FC = () => {
     setGuests(data);
 
     const uniqueRooms = new Set(data.map((g) => g.room));
-    const today = new Date().toISOString().split('T')[0];
 
     setStats({
       totalGuests: data.length,
       totalRooms: uniqueRooms.size,
       withBreakfast: data.filter((g) => g.hasBreakfast).length,
-      usedTodayCount: data.filter(
-        (g) => g.usedToday && g.consumptionDate === today
-      ).length,
+      usedTodayCount: data.filter((g) => g.usedToday).length,
     });
   };
 

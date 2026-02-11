@@ -1,4 +1,4 @@
-﻿import { Guest } from '../types';
+import { Guest, GuestInsertInput, PublicGuest } from '../types';
 
 type ServiceResult<T> = {
   ok: boolean;
@@ -35,7 +35,8 @@ const request = async <T>(url: string, options: RequestOptions = {}): Promise<Se
     }
 
     const payload = await response.json().catch(() => ({}));
-    return { ok: true, data: payload?.data as T };
+    const data = (payload?.data ?? payload) as T;
+    return { ok: true, data };
   } catch {
     return { ok: false, error: 'Falha de comunicacao com o backend.' };
   }
@@ -46,10 +47,10 @@ export const supabaseService = {
     return request<Guest[]>('/api/guests');
   },
 
-  getGuestsByRoom: async (room: string): Promise<ServiceResult<Guest[]>> => {
+  getGuestsByRoom: async (room: string): Promise<ServiceResult<PublicGuest[]>> => {
     const roomValue = room.trim();
     if (!roomValue) return { ok: true, data: [] };
-    return request<Guest[]>(`/api/guests?room=${encodeURIComponent(roomValue)}`);
+    return request<PublicGuest[]>(`/api/guests?room=${encodeURIComponent(roomValue)}`);
   },
 
   getGuestById: async (id: string): Promise<ServiceResult<Guest | null>> => {
@@ -59,7 +60,7 @@ export const supabaseService = {
   findGuestByRoomAndName: async (
     room: string,
     fullName: string
-  ): Promise<ServiceResult<Guest | null>> => {
+  ): Promise<ServiceResult<PublicGuest | null>> => {
     const roomValue = room.trim();
     const nameValue = fullName.trim();
 
@@ -67,13 +68,13 @@ export const supabaseService = {
       return { ok: true, data: null };
     }
 
-    return request<Guest | null>(
+    return request<PublicGuest | null>(
       `/api/guests?room=${encodeURIComponent(roomValue)}&name=${encodeURIComponent(nameValue)}`
     );
   },
 
   insertGuests: async (
-    newGuests: Omit<Guest, 'id' | 'createdAt'>[]
+    newGuests: GuestInsertInput[]
   ): Promise<ServiceResult<Guest[]>> => {
     return request<Guest[]>('/api/guests', {
       method: 'POST',
@@ -106,4 +107,19 @@ export const supabaseService = {
     if (!result.ok) return { ok: false, error: result.error };
     return { ok: true, data: null };
   },
+
+  issueQrToken: async (guestId: string): Promise<ServiceResult<{ token: string }>> => {
+    return request<{ token: string }>('/api/issue-qr', {
+      method: 'POST',
+      body: { guestId },
+    });
+  },
+
+  consumeQrToken: async (token: string): Promise<ServiceResult<Guest | null>> => {
+    return request<Guest | null>('/api/consume', {
+      method: 'POST',
+      body: { token },
+    });
+  },
 };
+

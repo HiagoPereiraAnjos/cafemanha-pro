@@ -9,9 +9,19 @@ export interface Guest {
   tariff: string;
   plan: string;
   hasBreakfast: boolean;
+  // Campo derivado no backend: true quando consumptionDate === hoje (America/Sao_Paulo).
   usedToday: boolean;
   consumptionDate: string | null;
   createdAt: string;
+}
+
+export type GuestInsertInput = Omit<Guest, 'id' | 'createdAt' | 'usedToday'>;
+
+export interface PublicGuest {
+  id: string;
+  name: string;
+  hasBreakfast: boolean;
+  usedToday: boolean;
 }
 
 export interface AppStats {

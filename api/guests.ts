@@ -1,7 +1,8 @@
-﻿import { createClient } from '@supabase/supabase-js';
-import type { Guest } from '../types';
+import { createClient } from '@supabase/supabase-js';
+import type { Guest, PublicGuest } from '../types';
 import { getSessionFromRequest } from './_session.js';
 import type { RoleKey } from './_session.js';
+import { getTodaySaoPaulo } from './lib/date.js';
 
 type GuestRow = {
   id: string | number | null;
@@ -23,6 +24,13 @@ type GuestRow = {
   usedToday?: boolean | null;
   consumptionDate?: string | null;
   createdAt?: string | null;
+};
+
+type PublicGuestRow = {
+  id: string | number | null;
+  name: string;
+  has_breakfast: boolean | null;
+  consumption_date: string | null;
 };
 
 const sendJson = (res: any, statusCode: number, payload: unknown) => {
@@ -85,22 +93,49 @@ const normalizeGuestName = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const rowToGuest = (row: GuestRow): Guest => ({
-  id: String(row.id ?? ''),
-  name: row.name || '',
-  room: row.room || '',
-  company: row.company || '',
-  checkIn: row.check_in ?? row.checkIn ?? '',
-  checkOut: row.check_out ?? row.checkOut ?? '',
-  tariff: row.tariff ?? '',
-  plan: row.plan ?? '',
-  hasBreakfast: Boolean(row.has_breakfast ?? row.hasBreakfast ?? false),
-  usedToday: Boolean(row.used_today ?? row.usedToday ?? false),
-  consumptionDate: (row.consumption_date ?? row.consumptionDate ?? null) as
-    | string
-    | null,
-  createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
-});
+const normalizeConsumptionDate = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+
+  const normalized = String(value).trim();
+  if (!normalized) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+
+  return normalized;
+};
+
+const isConsumedToday = (consumptionDate: string | null | undefined) =>
+  normalizeConsumptionDate(consumptionDate) === getTodaySaoPaulo();
+
+const rowToGuest = (row: GuestRow): Guest => {
+  const consumptionDate = normalizeConsumptionDate(
+    row.consumption_date ?? row.consumptionDate ?? null
+  );
+
+  return {
+    id: String(row.id ?? ''),
+    name: row.name || '',
+    room: row.room || '',
+    company: row.company || '',
+    checkIn: row.check_in ?? row.checkIn ?? '',
+    checkOut: row.check_out ?? row.checkOut ?? '',
+    tariff: row.tariff ?? '',
+    plan: row.plan ?? '',
+    hasBreakfast: Boolean(row.has_breakfast ?? row.hasBreakfast ?? false),
+    usedToday: isConsumedToday(consumptionDate),
+    consumptionDate,
+    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+  };
+};
+
+const rowToPublicGuest = (row: PublicGuestRow): PublicGuest => {
+  const consumptionDate = normalizeConsumptionDate(row.consumption_date);
+  return {
+    id: String(row.id ?? ''),
+    name: row.name || '',
+    hasBreakfast: Boolean(row.has_breakfast ?? false),
+    usedToday: isConsumedToday(consumptionDate),
+  };
+};
 
 const updatesToRow = (updates: Partial<Guest>) => {
   const row: Record<string, unknown> = {};
@@ -113,27 +148,42 @@ const updatesToRow = (updates: Partial<Guest>) => {
   if (updates.tariff !== undefined) row.tariff = updates.tariff;
   if (updates.plan !== undefined) row.plan = updates.plan;
   if (updates.hasBreakfast !== undefined) row.has_breakfast = updates.hasBreakfast;
-  if (updates.usedToday !== undefined) row.used_today = updates.usedToday;
-  if (updates.consumptionDate !== undefined) row.consumption_date = updates.consumptionDate;
+
+  let nextConsumptionDate: string | null | undefined;
+  if (updates.consumptionDate !== undefined) {
+    nextConsumptionDate = normalizeConsumptionDate(updates.consumptionDate);
+  } else if (updates.usedToday !== undefined) {
+    nextConsumptionDate = updates.usedToday ? getTodaySaoPaulo() : null;
+  }
+
+  if (nextConsumptionDate !== undefined) {
+    row.consumption_date = nextConsumptionDate;
+    row.used_today = isConsumedToday(nextConsumptionDate);
+  }
+
   if (updates.createdAt !== undefined) row.created_at = updates.createdAt;
 
   return row;
 };
 
-const guestToRow = (guest: Guest): GuestRow => ({
-  id: normalizeIdValue(guest.id),
-  name: guest.name,
-  room: guest.room,
-  company: guest.company,
-  check_in: guest.checkIn,
-  check_out: guest.checkOut,
-  tariff: guest.tariff,
-  plan: guest.plan,
-  has_breakfast: guest.hasBreakfast,
-  used_today: guest.usedToday,
-  consumption_date: guest.consumptionDate,
-  created_at: guest.createdAt,
-});
+const guestToRow = (guest: Guest): GuestRow => {
+  const consumptionDate = normalizeConsumptionDate(guest.consumptionDate);
+
+  return {
+    id: normalizeIdValue(guest.id),
+    name: guest.name,
+    room: guest.room,
+    company: guest.company,
+    check_in: guest.checkIn,
+    check_out: guest.checkOut,
+    tariff: guest.tariff,
+    plan: guest.plan,
+    has_breakfast: guest.hasBreakfast,
+    used_today: isConsumedToday(consumptionDate),
+    consumption_date: consumptionDate,
+    created_at: guest.createdAt,
+  };
+};
 
 const createServerClient = () => {
   const url = process.env.SUPABASE_URL || '';
@@ -250,7 +300,7 @@ export default async function handler(req: any, res: any) {
       if (room && name) {
         const { data, error } = await client
           .from(table)
-          .select('*')
+          .select('id, name, has_breakfast, consumption_date')
           .eq('room', room);
 
         if (error) {
@@ -259,18 +309,18 @@ export default async function handler(req: any, res: any) {
         }
 
         const normalizedName = normalizeGuestName(name);
-        const found = ((data || []) as GuestRow[]).find(
+        const found = ((data || []) as PublicGuestRow[]).find(
           (g) => normalizeGuestName(g.name || '') === normalizedName
         );
 
-        sendJson(res, 200, { ok: true, data: found ? rowToGuest(found) : null });
+        sendJson(res, 200, { ok: true, data: found ? rowToPublicGuest(found) : null });
         return;
       }
 
       if (room) {
         const { data, error } = await client
           .from(table)
-          .select('*')
+          .select('id, name, has_breakfast, consumption_date')
           .eq('room', room)
           .order('name', { ascending: true });
 
@@ -279,7 +329,7 @@ export default async function handler(req: any, res: any) {
           return;
         }
 
-        sendJson(res, 200, { ok: true, data: ((data || []) as GuestRow[]).map(rowToGuest) });
+        sendJson(res, 200, { ok: true, data: ((data || []) as PublicGuestRow[]).map(rowToPublicGuest) });
         return;
       }
 
@@ -331,19 +381,22 @@ export default async function handler(req: any, res: any) {
         return;
       }
 
-      const payload = guests.map((g: any) => ({
-        name: g.name,
-        room: g.room,
-        company: g.company,
-        check_in: g.checkIn,
-        check_out: g.checkOut,
-        tariff: g.tariff,
-        plan: g.plan,
-        has_breakfast: g.hasBreakfast,
-        used_today: g.usedToday,
-        consumption_date: g.consumptionDate,
-        created_at: new Date().toISOString(),
-      }));
+      const payload = guests.map((g: any) => {
+        const consumptionDate = normalizeConsumptionDate(g.consumptionDate);
+        return {
+          name: g.name,
+          room: g.room,
+          company: g.company,
+          check_in: g.checkIn,
+          check_out: g.checkOut,
+          tariff: g.tariff,
+          plan: g.plan,
+          has_breakfast: g.hasBreakfast,
+          used_today: isConsumedToday(consumptionDate),
+          consumption_date: consumptionDate,
+          created_at: new Date().toISOString(),
+        };
+      });
 
       const { data, error } = await client
         .from(table)
@@ -412,5 +465,3 @@ export default async function handler(req: any, res: any) {
     });
   }
 }
-
-
