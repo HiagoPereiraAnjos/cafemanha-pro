@@ -4,6 +4,7 @@ import type { RoleKey } from './_session.js';
 import { verifyQrToken } from './lib/qrToken.js';
 import { getTodaySaoPaulo } from './lib/date.js';
 import { createSupabaseAdminClient, normalizeIdValue } from './lib/supabaseAdmin.js';
+import { parseJsonBody } from './lib/request.js';
 
 type GuestRow = {
   id: string | number;
@@ -24,31 +25,6 @@ const sendJson = (res: any, statusCode: number, payload: unknown) => {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(payload));
-};
-
-const readRawBody = (req: any): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let body = '';
-
-    req.on('data', (chunk: Buffer | string) => {
-      body += chunk.toString();
-    });
-
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-
-const parseBody = async (req: any) => {
-  if (req.body && typeof req.body === 'object') return req.body;
-
-  const rawBody = typeof req.body === 'string' ? req.body : await readRawBody(req);
-  if (!rawBody) return {};
-
-  try {
-    return JSON.parse(rawBody);
-  } catch {
-    return null;
-  }
 };
 
 const requireSession = (
@@ -121,11 +97,12 @@ export default async function handler(req: any, res: any) {
 
   if (!requireSession(req, res, ['VALIDAR'])) return;
 
-  const body = await parseBody(req);
-  if (!body) {
-    sendJson(res, 400, { ok: false, error: 'Requisicao invalida.' });
+  const parsedBody = await parseJsonBody(req);
+  if (!parsedBody.ok) {
+    sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
     return;
   }
+  const body = parsedBody.data;
 
   const token = String(body?.token || '').trim();
   if (!token) {
@@ -153,52 +130,62 @@ export default async function handler(req: any, res: any) {
   try {
     const { client, table } = server;
     const guestId = normalizeIdValue(decoded.guestId);
-
-    const { data: existing, error: existingError } = await client
-      .from(table)
-      .select('*')
-      .eq('id', guestId)
-      .maybeSingle();
-
-    if (existingError) {
-      sendJson(res, 400, { ok: false, error: existingError.message });
-      return;
-    }
-
-    const guest = existing as GuestRow | null;
-    if (!guest) {
-      sendJson(res, 404, { ok: false, error: 'Hospede nao encontrado.' });
-      return;
-    }
-
-    if (!guest.has_breakfast) {
-      sendJson(res, 400, { ok: false, error: 'Hospede sem direito ao cafe da manha.' });
-      return;
-    }
-
     const today = getTodaySaoPaulo();
-    const alreadyUsedToday = normalizeConsumptionDate(guest.consumption_date) === today;
-    if (alreadyUsedToday) {
-      sendJson(res, 409, { ok: false, error: 'Cafe da manha ja utilizado hoje.' });
-      return;
-    }
 
-    const { data: updated, error: updateError } = await client
+    // Atualizacao atomica para evitar dupla validacao em chamadas concorrentes.
+    const { data: updatedRows, error: updateError } = await client
       .from(table)
       .update({
         used_today: true,
         consumption_date: today,
       })
       .eq('id', guestId)
-      .select('*')
-      .maybeSingle();
+      .eq('has_breakfast', true)
+      .or(`consumption_date.is.null,consumption_date.neq.${today}`)
+      .select('*');
 
     if (updateError) {
       sendJson(res, 400, { ok: false, error: updateError.message });
       return;
     }
 
-    const updatedGuest = updated as GuestRow | null;
+    const updatedGuest = ((updatedRows || []) as GuestRow[])[0] || null;
+    if (!updatedGuest) {
+      const { data: existing, error: existingError } = await client
+        .from(table)
+        .select('*')
+        .eq('id', guestId)
+        .maybeSingle();
+
+      if (existingError) {
+        sendJson(res, 400, { ok: false, error: existingError.message });
+        return;
+      }
+
+      const guest = existing as GuestRow | null;
+      if (!guest) {
+        sendJson(res, 404, { ok: false, error: 'Hospede nao encontrado.' });
+        return;
+      }
+
+      if (!guest.has_breakfast) {
+        sendJson(res, 400, { ok: false, error: 'Hospede sem direito ao cafe da manha.' });
+        return;
+      }
+
+      const alreadyUsedToday = normalizeConsumptionDate(guest.consumption_date) === today;
+      if (alreadyUsedToday) {
+        sendJson(res, 409, { ok: false, error: 'Cafe da manha ja utilizado hoje.' });
+        return;
+      }
+
+      sendJson(res, 409, {
+        ok: false,
+        error: 'Nao foi possivel registrar consumo neste momento.',
+      });
+      return;
+    }
+
     sendJson(res, 200, {
       ok: true,
       success: true,

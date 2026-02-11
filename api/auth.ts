@@ -1,9 +1,13 @@
-﻿import { createSessionToken, serializeSessionCookie } from './_session.js';
+import { createSessionToken, serializeSessionCookie } from './_session.js';
 import type { RoleKey } from './_session.js';
+import { checkRateLimit } from './lib/rateLimit.js';
+import { parseJsonBody } from './lib/request.js';
 
 type RolePasswords = Record<RoleKey, string>;
 
 const ROLE_KEYS: RoleKey[] = ['RECEPCAO', 'RESTAURANTE', 'VALIDAR'];
+const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const AUTH_RATE_LIMIT_MAX_REQUESTS = 8;
 
 const isRoleKey = (value: string): value is RoleKey =>
   ROLE_KEYS.includes(value as RoleKey);
@@ -20,29 +24,16 @@ const sendJson = (res: any, statusCode: number, payload: unknown) => {
   res.end(JSON.stringify(payload));
 };
 
-const readRawBody = (req: any): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let body = '';
+const getClientIp = (req: any) => {
+  const forwardedFor = req?.headers?.['x-forwarded-for'];
+  const forwardedValue = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
 
-    req.on('data', (chunk: Buffer | string) => {
-      body += chunk.toString();
-    });
-
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-
-const parseBody = async (req: any) => {
-  if (req.body && typeof req.body === 'object') return req.body;
-
-  const rawBody = typeof req.body === 'string' ? req.body : await readRawBody(req);
-  if (!rawBody) return {};
-
-  try {
-    return JSON.parse(rawBody);
-  } catch {
-    return null;
+  if (typeof forwardedValue === 'string' && forwardedValue.trim().length > 0) {
+    const firstIp = forwardedValue.split(',')[0]?.trim();
+    if (firstIp) return firstIp;
   }
+
+  return String(req?.socket?.remoteAddress || req?.connection?.remoteAddress || 'unknown');
 };
 
 export default async function handler(req: any, res: any) {
@@ -56,11 +47,29 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const body = await parseBody(req);
-  if (!body) {
-    sendJson(res, 400, { ok: false, error: 'Requisicao invalida.' });
+  const rateLimit = checkRateLimit(getClientIp(req), {
+    namespace: 'auth',
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+    maxRequests: AUTH_RATE_LIMIT_MAX_REQUESTS,
+  });
+
+  if (!rateLimit.allowed) {
+    if (rateLimit.retryAfterSeconds) {
+      res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+    }
+    sendJson(res, 429, {
+      ok: false,
+      error: 'Muitas tentativas de login. Tente novamente em alguns segundos.',
+    });
     return;
   }
+
+  const parsedBody = await parseJsonBody(req);
+  if (!parsedBody.ok) {
+    sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
+    return;
+  }
+  const body = parsedBody.data;
 
   const roleRaw = String(body?.role || '').trim().toUpperCase();
   const password = String(body?.password || '');
@@ -107,5 +116,3 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Set-Cookie', serializeSessionCookie(token, maxAgeSeconds));
   sendJson(res, 200, { ok: true });
 }
-
-

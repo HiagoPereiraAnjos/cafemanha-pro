@@ -6,6 +6,7 @@ import guestsHandler from './api/guests';
 import issueQrHandler from './api/issue-qr';
 import consumeHandler from './api/consume';
 import meHandler from './api/me';
+import logoutHandler from './api/logout';
 
 const applyEnvToProcess = (env: Record<string, string>) => {
   for (const [key, value] of Object.entries(env)) {
@@ -55,6 +56,7 @@ export default defineConfig(({ mode }) => {
         configureServer(server: any) {
           server.middlewares.use('/api/auth', runApiHandler(authHandler));
           server.middlewares.use('/api/me', runApiHandler(meHandler));
+          server.middlewares.use('/api/logout', runApiHandler(logoutHandler));
           server.middlewares.use('/api/guests', runApiHandler(guestsHandler));
           server.middlewares.use('/api/issue-qr', runApiHandler(issueQrHandler));
           server.middlewares.use('/api/consume', runApiHandler(consumeHandler));

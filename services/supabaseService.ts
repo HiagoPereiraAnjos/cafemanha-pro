@@ -82,6 +82,15 @@ export const supabaseService = {
     });
   },
 
+  replaceGuests: async (
+    newGuests: GuestInsertInput[]
+  ): Promise<ServiceResult<Guest[]>> => {
+    return request<Guest[]>('/api/guests?mode=replace', {
+      method: 'POST',
+      body: { guests: newGuests },
+    });
+  },
+
   saveGuests: async (guests: Guest[]): Promise<ServiceResult<null>> => {
     const result = await request<Guest[]>('/api/guests?mode=upsert', {
       method: 'POST',

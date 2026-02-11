@@ -3,6 +3,7 @@ import type { Guest, PublicGuest } from '../types';
 import { getSessionFromRequest } from './_session.js';
 import type { RoleKey } from './_session.js';
 import { getTodaySaoPaulo } from './lib/date.js';
+import { parseJsonBody } from './lib/request.js';
 
 type GuestRow = {
   id: string | number | null;
@@ -39,31 +40,6 @@ const sendJson = (res: any, statusCode: number, payload: unknown) => {
   res.end(JSON.stringify(payload));
 };
 
-const readRawBody = (req: any): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let body = '';
-
-    req.on('data', (chunk: Buffer | string) => {
-      body += chunk.toString();
-    });
-
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-
-const parseBody = async (req: any) => {
-  if (req.body && typeof req.body === 'object') return req.body;
-
-  const rawBody = typeof req.body === 'string' ? req.body : await readRawBody(req);
-  if (!rawBody) return {};
-
-  try {
-    return JSON.parse(rawBody);
-  } catch {
-    return null;
-  }
-};
-
 const toQueryParam = (value: unknown) => {
   if (Array.isArray(value)) return String(value[0] ?? '');
   if (value === undefined || value === null) return '';
@@ -83,6 +59,14 @@ const normalizeIdValue = (id: string | number) => {
   const trimmed = id.trim();
   if (/^\d+$/.test(trimmed)) return Number(trimmed);
   return trimmed;
+};
+
+const toInFilterValue = (value: string | number | null) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') return String(value);
+  const normalized = String(value).trim();
+  if (/^\d+$/.test(normalized)) return normalized;
+  return `"${normalized.replace(/"/g, '\\"')}"`;
 };
 
 const normalizeGuestName = (value: string) =>
@@ -348,11 +332,12 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const body = await parseBody(req);
-      if (!body) {
-        sendJson(res, 400, { ok: false, error: 'Requisicao invalida.' });
+      const parsedBody = await parseJsonBody(req);
+      if (!parsedBody.ok) {
+        sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
         return;
       }
+      const body = parsedBody.data;
 
       const guests = Array.isArray(body.guests) ? body.guests : [];
 
@@ -373,6 +358,83 @@ export default async function handler(req: any, res: any) {
         }
 
         sendJson(res, 200, { ok: true, data: ((data || []) as GuestRow[]).map(rowToGuest) });
+        return;
+      }
+
+      if (mode === 'replace') {
+        if (guests.length === 0) {
+          const { error: clearError } = await client
+            .from(table)
+            .delete()
+            .not('id', 'is', null);
+
+          if (clearError) {
+            sendJson(res, 400, { ok: false, error: clearError.message });
+            return;
+          }
+
+          sendJson(res, 200, { ok: true, data: [] });
+          return;
+        }
+
+        const nowIso = new Date().toISOString();
+        const payload = guests.map((g: any) => {
+          const consumptionDate = normalizeConsumptionDate(g.consumptionDate);
+          return {
+            name: g.name,
+            room: g.room,
+            company: g.company,
+            check_in: g.checkIn,
+            check_out: g.checkOut,
+            tariff: g.tariff,
+            plan: g.plan,
+            has_breakfast: g.hasBreakfast,
+            used_today: isConsumedToday(consumptionDate),
+            consumption_date: consumptionDate,
+            created_at: nowIso,
+          };
+        });
+
+        const { data: insertedData, error: insertError } = await client
+          .from(table)
+          .insert(payload)
+          .select('*');
+
+        if (insertError) {
+          sendJson(res, 400, { ok: false, error: insertError.message });
+          return;
+        }
+
+        const insertedRows = (insertedData || []) as GuestRow[];
+        const insertedIds = insertedRows
+          .map((row) => row.id)
+          .filter((id): id is string | number => id !== null && id !== undefined);
+
+        if (insertedIds.length === 0) {
+          sendJson(res, 500, {
+            ok: false,
+            error: 'Falha ao substituir dados: nenhum ID retornado na insercao.',
+          });
+          return;
+        }
+
+        const inValues = insertedIds.map(toInFilterValue).filter(Boolean).join(',');
+        const { error: removeOldError } = await client
+          .from(table)
+          .delete()
+          .not('id', 'in', `(${inValues})`);
+
+        if (removeOldError) {
+          // Rollback compensatorio para evitar manter dados duplicados em caso de falha parcial.
+          await client.from(table).delete().in('id', insertedIds.map(normalizeIdValue));
+          sendJson(res, 400, {
+            ok: false,
+            error: `Falha ao concluir substituicao dos dados: ${removeOldError.message}`,
+          });
+          return;
+        }
+
+        sendJson(res, 200, { ok: true, data: insertedRows.map(rowToGuest) });
         return;
       }
 
@@ -418,11 +480,12 @@ export default async function handler(req: any, res: any) {
         return;
       }
 
-      const body = await parseBody(req);
-      if (!body) {
-        sendJson(res, 400, { ok: false, error: 'Requisicao invalida.' });
+      const parsedBody = await parseJsonBody(req);
+      if (!parsedBody.ok) {
+        sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
         return;
       }
+      const body = parsedBody.data;
 
       const updates = (body.updates || body) as Partial<Guest>;
 

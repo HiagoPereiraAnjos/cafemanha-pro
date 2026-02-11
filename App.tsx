@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Utensils,
@@ -7,6 +7,7 @@ import {
   Coffee,
   ShieldCheck,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { UserRole } from './types';
 import AuthGuard from './views/AuthGuard';
@@ -18,6 +19,8 @@ import Validate from './views/Validate';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
@@ -25,6 +28,20 @@ const Navigation: React.FC = () => {
     { path: '/restaurante', label: 'Restaurante', icon: <Utensils size={18} /> },
     { path: '/validar', label: 'Validar', icon: <QrCode size={18} /> },
   ];
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+    } catch {
+      // If request fails we still force local navigation to protected routes re-check session.
+    } finally {
+      navigate('/', { replace: true });
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3 md:top-0 md:bottom-auto md:px-6 md:pt-5 md:pb-0">
@@ -52,6 +69,15 @@ const Navigation: React.FC = () => {
                 <span>{item.label}</span>
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all text-sm font-bold bg-slate-100/80 text-slate-600 hover:bg-slate-200/80 hover:text-slate-800 disabled:opacity-60"
+            >
+              <LogOut size={18} />
+              <span>{isLoggingOut ? 'Saindo...' : 'Sair'}</span>
+            </button>
           </div>
         </div>
       </div>

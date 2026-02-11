@@ -2,6 +2,7 @@ import { generateQrToken } from './lib/qrToken.js';
 import { getTodaySaoPaulo } from './lib/date.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { createSupabaseAdminClient, normalizeIdValue } from './lib/supabaseAdmin.js';
+import { parseJsonBody } from './lib/request.js';
 
 type GuestStatusRow = {
   id: string | number;
@@ -13,31 +14,6 @@ const sendJson = (res: any, statusCode: number, payload: unknown) => {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(payload));
-};
-
-const readRawBody = (req: any): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let body = '';
-
-    req.on('data', (chunk: Buffer | string) => {
-      body += chunk.toString();
-    });
-
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-
-const parseBody = async (req: any) => {
-  if (req.body && typeof req.body === 'object') return req.body;
-
-  const rawBody = typeof req.body === 'string' ? req.body : await readRawBody(req);
-  if (!rawBody) return {};
-
-  try {
-    return JSON.parse(rawBody);
-  } catch {
-    return null;
-  }
 };
 
 const normalizeConsumptionDate = (value: unknown) => {
@@ -85,11 +61,12 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const body = await parseBody(req);
-  if (!body) {
-    sendJson(res, 400, { ok: false, error: 'Requisicao invalida.' });
+  const parsedBody = await parseJsonBody(req);
+  if (!parsedBody.ok) {
+    sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
     return;
   }
+  const body = parsedBody.data;
 
   const guestId = String(body?.guestId || '').trim();
   if (!guestId) {

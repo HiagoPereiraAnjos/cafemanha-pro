@@ -9,6 +9,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 type ReceptionStatusFilter = 'all' | 'with_breakfast' | 'without_breakfast' | 'used_today';
+const POLL_BASE_DELAY_MS = 5000;
+const POLL_MAX_DELAY_MS = 30000;
 
 const normalizeSearchText = (value: string) =>
   value
@@ -37,10 +39,8 @@ const Reception: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReceptionStatusFilter>('all');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error' | 'info' | 'warning';
-    message: string;
-  } | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const [stats, setStats] = useState<AppStats>({
     totalGuests: 0,
@@ -49,15 +49,17 @@ const Reception: React.FC = () => {
     usedTodayCount: 0
   });
 
-  const loadData = async () => {
+  const loadData = async (): Promise<boolean> => {
     const result = await supabaseService.getGuests();
     if (!result.ok) {
-      alert(`Erro ao carregar hóspedes do Supabase: ${result.error}`);
-      return;
+      setSyncError(`Falha na sincronização com Supabase: ${result.error}`);
+      return false;
     }
 
     const data = result.data || [];
     setGuests(data);
+    setSyncError(null);
+    setLastSyncAt(new Date().toLocaleTimeString('pt-BR'));
 
     const uniqueRooms = new Set(data.map((g) => g.room));
 
@@ -67,14 +69,63 @@ const Reception: React.FC = () => {
       withBreakfast: data.filter((g) => g.hasBreakfast).length,
       usedTodayCount: data.filter((g) => g.usedToday).length,
     });
+    return true;
   };
 
   useEffect(() => {
-    void loadData();
-    const interval = setInterval(() => {
-      void loadData();
-    }, 5000);
-    return () => clearInterval(interval);
+    let disposed = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let nextDelay = POLL_BASE_DELAY_MS;
+
+    const clearScheduled = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const schedule = (delay: number) => {
+      if (disposed) return;
+      clearScheduled();
+      timeoutId = setTimeout(() => {
+        void tick();
+      }, delay);
+    };
+
+    const tick = async () => {
+      if (disposed) return;
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule(POLL_BASE_DELAY_MS);
+        return;
+      }
+
+      const ok = await loadData();
+      nextDelay = ok ? POLL_BASE_DELAY_MS : Math.min(POLL_MAX_DELAY_MS, nextDelay * 2);
+      schedule(nextDelay);
+    };
+
+    const handleVisibilityChange = () => {
+      if (disposed) return;
+      if (document.visibilityState === 'visible') {
+        nextDelay = POLL_BASE_DELAY_MS;
+        schedule(0);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    void tick();
+
+    return () => {
+      disposed = true;
+      clearScheduled();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -120,15 +171,9 @@ const Reception: React.FC = () => {
   const confirmImport = async () => {
     setIsSavingImport(true);
     try {
-      const resetResult = await supabaseService.resetGuests();
-      if (!resetResult.ok) {
-        alert(`Falha ao substituir dados no Supabase (etapa limpar): ${resetResult.error}`);
-        return;
-      }
-
-      const insertResult = await supabaseService.insertGuests(previewList);
-      if (!insertResult.ok) {
-        alert(`Falha ao substituir dados no Supabase (etapa inserir): ${insertResult.error}`);
+      const replaceResult = await supabaseService.replaceGuests(previewList);
+      if (!replaceResult.ok) {
+        alert(`Falha ao substituir dados no Supabase: ${replaceResult.error}`);
         return;
       }
 
@@ -303,6 +348,8 @@ const Reception: React.FC = () => {
         </div>
       </header>
 
+      {syncError && <Alert type="error" message={syncError} />}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Hóspedes" value={stats.totalGuests} icon={<Users />} />
         <StatCard label="Quartos Ocupados" value={stats.totalRooms} icon={<DoorClosed />} />
@@ -454,8 +501,13 @@ const Reception: React.FC = () => {
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-800">Lista de Hóspedes</h2>
             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sincronizado</span>
+               <div
+                 className={`w-2 h-2 rounded-full ${syncError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}
+               ></div>
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                 {syncError ? 'Falha de sincronizacao' : 'Sincronizado'}
+                 {lastSyncAt ? ` - ${lastSyncAt}` : ''}
+               </span>
             </div>
           </div>
           

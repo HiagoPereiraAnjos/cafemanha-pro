@@ -28,6 +28,19 @@ const sign = (payloadBase64: string, secret: string) =>
 
 const resolveSecret = () => process.env.AUTH_SESSION_SECRET || '';
 
+const splitSignedToken = (token: string): [string, string] | null => {
+  const dotIndex = token.indexOf('.');
+  if (dotIndex <= 0) return null;
+  if (dotIndex !== token.lastIndexOf('.')) return null;
+  if (dotIndex >= token.length - 1) return null;
+
+  const payloadBase64 = token.slice(0, dotIndex);
+  const signature = token.slice(dotIndex + 1);
+  if (!payloadBase64 || !signature) return null;
+
+  return [payloadBase64, signature];
+};
+
 export const generateQrToken = (guestId: string) => {
   const normalizedGuestId = String(guestId || '').trim();
   if (!normalizedGuestId) {
@@ -55,8 +68,9 @@ export const verifyQrToken = (token: string): QrTokenVerificationResult => {
   const secret = resolveSecret();
   if (!secret) return null;
 
-  const [payloadBase64, signature] = token.split('.');
-  if (!payloadBase64 || !signature) return null;
+  const parts = splitSignedToken(token);
+  if (!parts) return null;
+  const [payloadBase64, signature] = parts;
 
   const expectedSignature = sign(payloadBase64, secret);
   const signatureBuffer = Buffer.from(signature);

@@ -8,10 +8,15 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
+const POLL_BASE_DELAY_MS = 3000;
+const POLL_MAX_DELAY_MS = 30000;
+
 const Restaurant: React.FC = () => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [filter, setFilter] = useState('');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   
   const [stats, setStats] = useState<AppStats>({
     totalGuests: 0,
@@ -20,15 +25,17 @@ const Restaurant: React.FC = () => {
     usedTodayCount: 0
   });
 
-  const loadData = async () => {
+  const loadData = async (): Promise<boolean> => {
     const result = await supabaseService.getGuests();
     if (!result.ok) {
-      alert(`Erro ao carregar hóspedes do Supabase: ${result.error}`);
-      return;
+      setSyncError(`Falha na sincronizacao com Supabase: ${result.error}`);
+      return false;
     }
 
     const data = result.data || [];
     setGuests(data);
+    setSyncError(null);
+    setLastSyncAt(new Date().toLocaleTimeString('pt-BR'));
 
     const uniqueRooms = new Set(data.map((g) => g.room));
 
@@ -38,14 +45,63 @@ const Restaurant: React.FC = () => {
       withBreakfast: data.filter((g) => g.hasBreakfast).length,
       usedTodayCount: data.filter((g) => g.usedToday).length,
     });
+    return true;
   };
 
   useEffect(() => {
-    void loadData();
-    const interval = setInterval(() => {
-      void loadData();
-    }, 3000);
-    return () => clearInterval(interval);
+    let disposed = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let nextDelay = POLL_BASE_DELAY_MS;
+
+    const clearScheduled = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const schedule = (delay: number) => {
+      if (disposed) return;
+      clearScheduled();
+      timeoutId = setTimeout(() => {
+        void tick();
+      }, delay);
+    };
+
+    const tick = async () => {
+      if (disposed) return;
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule(POLL_BASE_DELAY_MS);
+        return;
+      }
+
+      const ok = await loadData();
+      nextDelay = ok ? POLL_BASE_DELAY_MS : Math.min(POLL_MAX_DELAY_MS, nextDelay * 2);
+      schedule(nextDelay);
+    };
+
+    const handleVisibilityChange = () => {
+      if (disposed) return;
+      if (document.visibilityState === 'visible') {
+        nextDelay = POLL_BASE_DELAY_MS;
+        schedule(0);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    void tick();
+
+    return () => {
+      disposed = true;
+      clearScheduled();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, []);
 
   const filteredGuests = useMemo(() => {
@@ -126,6 +182,8 @@ const Restaurant: React.FC = () => {
         <p className="text-slate-500 mt-2">Acompanhamento em tempo real e lista de acessos</p>
       </header>
 
+      {syncError && <Alert type="error" message={syncError} />}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Ocupação Total" value={stats.totalGuests} icon={<Users size={24} />} />
         <StatCard label="Quartos na Casa" value={stats.totalRooms} icon={<DoorClosed size={24} />} />
@@ -170,6 +228,7 @@ const Restaurant: React.FC = () => {
             <h2 className="text-xl font-bold text-slate-800">Checklist de Hóspedes</h2>
             <p className="text-sm text-slate-400 mt-1">
               {filteredGuests.length} hóspedes filtrados
+              {lastSyncAt ? ` • Última sincronização: ${lastSyncAt}` : ''}
             </p>
           </div>
           

@@ -8,6 +8,7 @@ type SessionPayload = {
 };
 
 const SESSION_COOKIE_NAME = 'hbcp_auth';
+const ROLE_KEYS: RoleKey[] = ['RECEPCAO', 'RESTAURANTE', 'VALIDAR'];
 
 const toBase64Url = (value: string) =>
   Buffer.from(value, 'utf8')
@@ -25,6 +26,19 @@ const fromBase64Url = (value: string) => {
 const sign = (payloadBase64: string, secret: string) =>
   createHmac('sha256', secret).update(payloadBase64).digest('base64url');
 
+const splitSignedToken = (token: string): [string, string] | null => {
+  const dotIndex = token.indexOf('.');
+  if (dotIndex <= 0) return null;
+  if (dotIndex !== token.lastIndexOf('.')) return null;
+  if (dotIndex >= token.length - 1) return null;
+
+  const payloadBase64 = token.slice(0, dotIndex);
+  const signature = token.slice(dotIndex + 1);
+  if (!payloadBase64 || !signature) return null;
+
+  return [payloadBase64, signature];
+};
+
 export const createSessionToken = (
   payload: SessionPayload,
   secret: string
@@ -38,8 +52,9 @@ export const verifySessionToken = (
   token: string,
   secret: string
 ): SessionPayload | null => {
-  const [payloadBase64, signature] = token.split('.');
-  if (!payloadBase64 || !signature) return null;
+  const parts = splitSignedToken(token);
+  if (!parts) return null;
+  const [payloadBase64, signature] = parts;
 
   const expected = sign(payloadBase64, secret);
   const a = Buffer.from(signature);
@@ -52,6 +67,8 @@ export const verifySessionToken = (
     if (!payload || typeof payload.exp !== 'number' || typeof payload.role !== 'string') {
       return null;
     }
+    if (!ROLE_KEYS.includes(payload.role as RoleKey)) return null;
+    if (!Number.isFinite(payload.exp)) return null;
     if (Date.now() >= payload.exp) return null;
     return payload;
   } catch {
@@ -68,7 +85,11 @@ export const parseCookies = (cookieHeader: string | undefined) => {
     if (index <= 0) continue;
     const key = pair.slice(0, index).trim();
     const value = pair.slice(index + 1).trim();
-    result[key] = decodeURIComponent(value);
+    try {
+      result[key] = decodeURIComponent(value);
+    } catch {
+      result[key] = value;
+    }
   }
 
   return result;
@@ -91,4 +112,9 @@ export const serializeSessionCookie = (
 ): string => {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
+};
+
+export const serializeClearedSessionCookie = (): string => {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 };
