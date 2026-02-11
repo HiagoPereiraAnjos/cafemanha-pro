@@ -102,6 +102,8 @@ const Validate: React.FC = () => {
   }, [token]);
 
   const confirmConsumption = async () => {
+    if (isConfirming) return;
+
     if (!token) {
       setError('Token do QR nao encontrado.');
       return;
@@ -111,7 +113,7 @@ const Validate: React.FC = () => {
     setError('');
 
     try {
-      const consumeResult = await supabaseService.consumeQrToken(token);
+      const consumeResult = await supabaseService.consumeQrToken(token, true);
       if (!consumeResult.ok) {
         setError(consumeResult.error || 'Falha ao validar consumo.');
         return;

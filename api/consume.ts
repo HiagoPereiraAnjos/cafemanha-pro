@@ -21,6 +21,11 @@ type GuestRow = {
   created_at: string | null;
 };
 
+type ConsumeRequestBody = {
+  token?: unknown;
+  confirm?: unknown;
+};
+
 const sendJson = (res: any, statusCode: number, payload: unknown) => {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -97,8 +102,8 @@ export default async function handler(req: any, res: any) {
 
   if (!requireSession(req, res, ['VALIDAR'])) return;
 
-  const parsedBody = await parseJsonBody(req);
-  if (!parsedBody.ok) {
+  const parsedBody = await parseJsonBody<ConsumeRequestBody>(req);
+  if (parsedBody.ok === false) {
     sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
     return;
   }
@@ -107,6 +112,15 @@ export default async function handler(req: any, res: any) {
   const token = String(body?.token || '').trim();
   if (!token) {
     sendJson(res, 400, { ok: false, error: 'token obrigatorio.' });
+    return;
+  }
+
+  const confirmed = body?.confirm === true;
+  if (!confirmed) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'Confirmacao obrigatoria para validar consumo.',
+    });
     return;
   }
 
@@ -122,19 +136,19 @@ export default async function handler(req: any, res: any) {
   }
 
   const server = createSupabaseAdminClient();
-  if (!server.ok) {
+  if (server.ok === false) {
     sendJson(res, 500, { ok: false, error: server.error });
     return;
   }
 
   try {
     const { client, table } = server;
+    const fromTable = () => (client as any).from(table);
     const guestId = normalizeIdValue(decoded.guestId);
     const today = getTodaySaoPaulo();
 
     // Atualizacao atomica para evitar dupla validacao em chamadas concorrentes.
-    const { data: updatedRows, error: updateError } = await client
-      .from(table)
+    const { data: updatedRows, error: updateError } = await fromTable()
       .update({
         used_today: true,
         consumption_date: today,
@@ -151,8 +165,7 @@ export default async function handler(req: any, res: any) {
 
     const updatedGuest = ((updatedRows || []) as GuestRow[])[0] || null;
     if (!updatedGuest) {
-      const { data: existing, error: existingError } = await client
-        .from(table)
+      const { data: existing, error: existingError } = await fromTable()
         .select('*')
         .eq('id', guestId)
         .maybeSingle();

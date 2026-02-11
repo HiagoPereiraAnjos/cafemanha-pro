@@ -124,10 +124,13 @@ export const supabaseService = {
     });
   },
 
-  consumeQrToken: async (token: string): Promise<ServiceResult<Guest | null>> => {
+  consumeQrToken: async (
+    token: string,
+    confirm: boolean = true
+  ): Promise<ServiceResult<Guest | null>> => {
     return request<Guest | null>('/api/consume', {
       method: 'POST',
-      body: { token },
+      body: { token, confirm },
     });
   },
 };
