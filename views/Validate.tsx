@@ -37,8 +37,41 @@ const Validate: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isStoppingScannerRef = useRef(false);
+  const isConfirmingRequestRef = useRef(false);
+
+  const stopScanner = React.useCallback(async () => {
+    if (isStoppingScannerRef.current) return;
+
+    const scanner = scannerRef.current;
+    if (!scanner) {
+      setIsScanning(false);
+      return;
+    }
+
+    isStoppingScannerRef.current = true;
+    try {
+      await scanner.stop();
+    } catch (error: any) {
+      const message = String(error?.message || error || '').toLowerCase();
+      const isAlreadyStopped =
+        message.includes('not running') ||
+        message.includes('not started') ||
+        message.includes('paused');
+
+      if (!isAlreadyStopped) {
+        console.error(error);
+      }
+    } finally {
+      scannerRef.current = null;
+      isStoppingScannerRef.current = false;
+      setIsScanning(false);
+    }
+  }, []);
 
   const startScanner = async () => {
+    if (isScanning) return;
+
     setIsScanning(true);
     setError('');
 
@@ -54,7 +87,7 @@ const Validate: React.FC = () => {
             const extractedToken = extractTokenFromQr(decodedText);
             if (extractedToken) {
               setSearchParams({ token: extractedToken });
-              stopScanner();
+              void stopScanner();
             }
           },
           () => {}
@@ -62,22 +95,10 @@ const Validate: React.FC = () => {
         .catch((err) => {
           console.error(err);
           setError('Nao foi possivel acessar a camera.');
+          scannerRef.current = null;
           setIsScanning(false);
         });
     }, 100);
-  };
-
-  const stopScanner = () => {
-    if (scannerRef.current) {
-      scannerRef.current
-        .stop()
-        .then(() => {
-          setIsScanning(false);
-        })
-        .catch((err) => console.error(err));
-    } else {
-      setIsScanning(false);
-    }
   };
 
   useEffect(() => {
@@ -95,20 +116,19 @@ const Validate: React.FC = () => {
     setLoading(false);
 
     return () => {
-      if (scannerRef.current) {
-        void scannerRef.current.stop();
-      }
+      void stopScanner();
     };
-  }, [token]);
+  }, [token, stopScanner]);
 
   const confirmConsumption = async () => {
-    if (isConfirming) return;
+    if (isConfirmingRequestRef.current) return;
 
     if (!token) {
       setError('Token do QR nao encontrado.');
       return;
     }
 
+    isConfirmingRequestRef.current = true;
     setIsConfirming(true);
     setError('');
 
@@ -122,6 +142,7 @@ const Validate: React.FC = () => {
       setGuest(consumeResult.data || null);
       setSuccess(true);
     } finally {
+      isConfirmingRequestRef.current = false;
       setIsConfirming(false);
     }
   };
