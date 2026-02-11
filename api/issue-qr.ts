@@ -1,5 +1,6 @@
 import { generateQrToken } from './lib/qrToken.js';
 import { getTodaySaoPaulo } from './lib/date.js';
+import { checkRateLimit } from './lib/rateLimit.js';
 import { createSupabaseAdminClient, normalizeIdValue } from './lib/supabaseAdmin.js';
 
 type GuestStatusRow = {
@@ -49,6 +50,18 @@ const normalizeConsumptionDate = (value: unknown) => {
   return normalized;
 };
 
+const getClientIp = (req: any) => {
+  const forwardedFor = req?.headers?.['x-forwarded-for'];
+  const forwardedValue = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+
+  if (typeof forwardedValue === 'string' && forwardedValue.trim().length > 0) {
+    const firstIp = forwardedValue.split(',')[0]?.trim();
+    if (firstIp) return firstIp;
+  }
+
+  return String(req?.socket?.remoteAddress || req?.connection?.remoteAddress || 'unknown');
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, { ok: true });
@@ -57,6 +70,18 @@ export default async function handler(req: any, res: any) {
 
   if (req.method !== 'POST') {
     sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    return;
+  }
+
+  const rateLimit = checkRateLimit(getClientIp(req));
+  if (!rateLimit.allowed) {
+    if (rateLimit.retryAfterSeconds) {
+      res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+    }
+    sendJson(res, 429, {
+      ok: false,
+      error: 'Muitas tentativas. Tente novamente em alguns segundos.',
+    });
     return;
   }
 
@@ -93,19 +118,19 @@ export default async function handler(req: any, res: any) {
 
     const guest = data as GuestStatusRow | null;
     if (!guest) {
-      sendJson(res, 404, { ok: false, error: 'Hospede nao encontrado.' });
+      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
       return;
     }
 
     if (!guest.has_breakfast) {
-      sendJson(res, 400, { ok: false, error: 'Hospede sem direito ao cafe da manha.' });
+      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
       return;
     }
 
     const today = getTodaySaoPaulo();
     const alreadyUsedToday = normalizeConsumptionDate(guest.consumption_date) === today;
     if (alreadyUsedToday) {
-      sendJson(res, 409, { ok: false, error: 'Cafe da manha ja utilizado hoje.' });
+      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
       return;
     }
 

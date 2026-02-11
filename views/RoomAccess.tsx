@@ -5,6 +5,7 @@ import { Coffee, QrCode, RefreshCw, ArrowLeft } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
 import { PublicGuest } from '../types';
 import { Alert, Button } from '../components/Shared';
+import { getBaseUrl } from '../utils/url';
 
 type Feedback = {
   type: 'success' | 'error' | 'info' | 'warning';
@@ -19,18 +20,8 @@ const getRoomFromParams = (searchParams: URLSearchParams) =>
     ''
   ).trim();
 
-const resolveBaseUrl = () => {
-  const envBase = (import.meta as any).env?.VITE_PUBLIC_BASE_URL as
-    | string
-    | undefined;
-  if (envBase && envBase.trim().length > 0) {
-    return envBase.trim();
-  }
-  return window.location.href;
-};
-
 const generateValidationUrl = (token: string) => {
-  const baseUrl = resolveBaseUrl();
+  const baseUrl = getBaseUrl();
 
   let url: URL;
   try {

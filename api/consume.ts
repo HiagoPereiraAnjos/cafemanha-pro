@@ -134,8 +134,13 @@ export default async function handler(req: any, res: any) {
   }
 
   const decoded = verifyQrToken(token);
+  if (decoded === 'expired') {
+    sendJson(res, 401, { ok: false, error: 'Token expirado' });
+    return;
+  }
+
   if (!decoded) {
-    sendJson(res, 400, { ok: false, error: 'Token invalido ou expirado.' });
+    sendJson(res, 400, { ok: false, error: 'Token invalido' });
     return;
   }
 

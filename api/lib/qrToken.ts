@@ -5,6 +5,8 @@ type QrTokenPayload = {
   timestamp: number;
 };
 
+export type QrTokenVerificationResult = QrTokenPayload | 'expired' | null;
+
 const QR_TOKEN_TTL_MS = 30 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 10 * 1000;
 
@@ -47,7 +49,7 @@ export const generateQrToken = (guestId: string) => {
   return `${payloadBase64}.${signature}`;
 };
 
-export const verifyQrToken = (token: string): QrTokenPayload | null => {
+export const verifyQrToken = (token: string): QrTokenVerificationResult => {
   if (!token || typeof token !== 'string') return null;
 
   const secret = resolveSecret();
@@ -75,7 +77,7 @@ export const verifyQrToken = (token: string): QrTokenPayload | null => {
 
     const now = Date.now();
     if (payload.timestamp > now + MAX_FUTURE_SKEW_MS) return null;
-    if (now - payload.timestamp > QR_TOKEN_TTL_MS) return null;
+    if (now - payload.timestamp > QR_TOKEN_TTL_MS) return 'expired';
 
     return {
       guestId: payload.guestId.trim(),
