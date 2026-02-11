@@ -5,7 +5,7 @@ type QrTokenPayload = {
   timestamp: number;
 };
 
-const QR_TOKEN_TTL_MS = 60 * 1000;
+const QR_TOKEN_TTL_MS = 30 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 10 * 1000;
 
 const toBase64Url = (value: string) =>
