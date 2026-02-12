@@ -6,6 +6,7 @@ import { supabaseService } from '../services/supabaseService';
 import { PublicGuest } from '../types';
 import { Alert, Button } from '../components/Shared';
 import { getBaseUrl } from '../utils/url';
+import { isQrIssuanceWindowOpen, QR_WINDOW_MESSAGE } from '../utils/qrWindow';
 
 type Feedback = {
   type: 'success' | 'error' | 'info' | 'warning';
@@ -121,6 +122,15 @@ const GuestView: React.FC = () => {
         setFeedback({
           type: 'warning',
           message: `O cafe da manha de ${guest.name} ja foi utilizado hoje.`,
+        });
+        return;
+      }
+
+      if (!isQrIssuanceWindowOpen()) {
+        setSelectedGuest(guest);
+        setFeedback({
+          type: 'warning',
+          message: QR_WINDOW_MESSAGE,
         });
         return;
       }
