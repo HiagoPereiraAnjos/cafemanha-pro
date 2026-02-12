@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import QRCodeLib from 'qrcode';
 import { Coffee, QrCode, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -11,6 +11,9 @@ type Feedback = {
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 };
+
+const POLL_BASE_DELAY_MS = 3000;
+const POLL_MAX_DELAY_MS = 30000;
 
 const getRoomFromParams = (searchParams: URLSearchParams) =>
   (
@@ -59,6 +62,97 @@ const RoomAccess: React.FC = () => {
 
     void loadGuestsByRoom(roomFromUrl);
   }, [roomFromUrl]);
+
+  useEffect(() => {
+    if (!roomFromUrl) return;
+
+    let disposed = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let nextDelay = POLL_BASE_DELAY_MS;
+
+    const clearScheduled = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const schedule = (delay: number) => {
+      if (disposed) return;
+      clearScheduled();
+      timeoutId = setTimeout(() => {
+        void tick();
+      }, delay);
+    };
+
+    const tick = async () => {
+      if (disposed) return;
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule(POLL_BASE_DELAY_MS);
+        return;
+      }
+
+      const result = await supabaseService.getGuestsByRoom(roomFromUrl);
+      if (!result.ok) {
+        nextDelay = Math.min(POLL_MAX_DELAY_MS, nextDelay * 2);
+        schedule(nextDelay);
+        return;
+      }
+
+      const guests = result.data || [];
+      setRoomGuests(guests);
+
+      nextDelay = POLL_BASE_DELAY_MS;
+      schedule(nextDelay);
+    };
+
+    const handleVisibilityChange = () => {
+      if (disposed) return;
+      if (document.visibilityState === 'visible') {
+        nextDelay = POLL_BASE_DELAY_MS;
+        schedule(0);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    schedule(POLL_BASE_DELAY_MS);
+
+    return () => {
+      disposed = true;
+      clearScheduled();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [roomFromUrl]);
+
+  useEffect(() => {
+    if (!selectedGuest) return;
+
+    const updatedGuest = roomGuests.find((g) => g.id === selectedGuest.id);
+    if (!updatedGuest) return;
+
+    if (
+      updatedGuest.id !== selectedGuest.id ||
+      updatedGuest.name !== selectedGuest.name ||
+      updatedGuest.hasBreakfast !== selectedGuest.hasBreakfast ||
+      updatedGuest.usedToday !== selectedGuest.usedToday
+    ) {
+      setSelectedGuest(updatedGuest);
+    }
+
+    if (updatedGuest.usedToday && qrCodeDataUrl) {
+      setQrCodeDataUrl('');
+      setFeedback({
+        type: 'success',
+        message: `Leitura confirmada para ${updatedGuest.name}.`,
+      });
+    }
+  }, [roomGuests, selectedGuest, qrCodeDataUrl]);
 
   const loadGuestsByRoom = async (room: string) => {
     setIsLoading(true);
@@ -229,7 +323,9 @@ const RoomAccess: React.FC = () => {
             <QrCode size={52} />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800">QR Gerado</h2>
+          <h2 className="text-2xl font-bold text-slate-800">
+            {qrCodeDataUrl ? 'QR Gerado' : 'Consumo Confirmado'}
+          </h2>
 
           <p className="text-slate-500 mt-2">
             Hospede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
@@ -238,20 +334,29 @@ const RoomAccess: React.FC = () => {
             Quarto: <span className="font-bold text-slate-800">{roomFromUrl || '-'}</span>
           </p>
 
-          <div className="my-8 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center">
-            <div className="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
-              <img
-                src={qrCodeDataUrl}
-                alt="QR Code de Acesso"
-                className="w-56 h-56 object-contain"
-              />
+          {qrCodeDataUrl ? (
+            <div className="my-8 p-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center">
+              <div className="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
+                <img
+                  src={qrCodeDataUrl}
+                  alt="QR Code de Acesso"
+                  className="w-56 h-56 object-contain"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <Alert
+              type="success"
+              message="Este hospede ja foi validado hoje."
+            />
+          )}
 
-          <Alert
-            type="warning"
-            message="Apresente este QR no restaurante para validar seu cafe."
-          />
+          {qrCodeDataUrl && (
+            <Alert
+              type="warning"
+              message="Apresente este QR no restaurante para validar seu cafe."
+            />
+          )}
 
           <button
             onClick={() => {
