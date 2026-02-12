@@ -258,54 +258,66 @@ const Reception: React.FC = () => {
 
   const exportToExcel = () => {
     if (filteredGuests.length === 0) return;
-    
+    const consumedCount = filteredGuests.filter((g) => g.usedToday).length;
+
     const data = filteredGuests.map(g => ({
-      'Nome do Hóspede': g.name,
+      'Nome do HÃ³spede': g.name,
       'Quarto': g.room,
       'Empresa': g.company,
-      'Direito ao Café': g.hasBreakfast ? 'Sim' : 'Não',
-      'Consumido Hoje': g.usedToday ? 'Sim' : 'Não',
+      'Direito ao CafÃ©': g.hasBreakfast ? 'Sim' : 'NÃ£o',
+      'Consumido Hoje': g.usedToday ? 'Sim' : 'NÃ£o',
       'Data do Consumo': g.consumptionDate || '-',
       'Check-out': g.checkOut
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
+    const summarySheet = XLSX.utils.aoa_to_sheet([
+      ['Resumo do Relatorio'],
+      ['Total de registros', filteredGuests.length],
+      ['Ja utilizaram cafe', consumedCount],
+      ['Ainda nao utilizaram cafe', filteredGuests.length - consumedCount],
+      ['Gerado em', new Date().toLocaleString('pt-BR')],
+    ]);
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Hóspedes");
-    
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "HÃ³spedes");
+
     const maxWidths = Object.keys(data[0] || {}).map(key => ({ wch: key.length + 5 }));
     worksheet['!cols'] = maxWidths;
+    summarySheet['!cols'] = [{ wch: 30 }, { wch: 24 }];
 
     XLSX.writeFile(workbook, `hotel_hospedes_${new Date().toISOString().split('T')[0]}.xlsx`);
     setIsExportMenuOpen(false);
   };
-
   const exportToPDF = () => {
     if (filteredGuests.length === 0) return;
+    const consumedCount = filteredGuests.filter((g) => g.usedToday).length;
 
     const doc = new jsPDF();
     const today = new Date().toLocaleString('pt-BR');
 
     doc.setFontSize(18);
-    doc.text('Relatório de Hóspedes - Café da Manhã', 14, 20);
-    
+    doc.text('RelatÃ³rio de HÃ³spedes - CafÃ© da ManhÃ£', 14, 20);
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Gerado em: ${today}`, 14, 28);
     doc.text(`Total de registros: ${filteredGuests.length}`, 14, 33);
+    doc.text(`Ja utilizaram cafe: ${consumedCount}`, 14, 38);
 
     const tableData = filteredGuests.map(g => [
       g.name,
       g.room,
-      g.hasBreakfast ? 'Sim' : 'Não',
-      g.usedToday ? 'Sim' : 'Não',
+      g.hasBreakfast ? 'Sim' : 'NÃ£o',
+      g.usedToday ? 'Sim' : 'NÃ£o',
       g.checkOut
     ]);
 
     (doc as any).autoTable({
-      head: [['Nome', 'Quarto', 'Direito Café', 'Consumido', 'Check-out']],
+      head: [['Nome', 'Quarto', 'Direito CafÃ©', 'Consumido', 'Check-out']],
       body: tableData,
-      startY: 40,
+      startY: 45,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], fontSize: 10 },
       styles: { fontSize: 9 },
@@ -314,7 +326,6 @@ const Reception: React.FC = () => {
     doc.save(`hotel_hospedes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsExportMenuOpen(false);
   };
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
