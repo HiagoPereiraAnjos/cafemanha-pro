@@ -11,6 +11,20 @@ type RequestOptions = {
   body?: unknown;
 };
 
+const toFriendlyIssueQrError = (error?: string) => {
+  const normalized = String(error || '').toLowerCase();
+
+  if (normalized.includes('geracao de qr disponivel')) {
+    return 'O QR Code so pode ser gerado no horario do cafe da manha: de segunda a sabado, das 06:00 as 10:00, e aos domingos, das 07:00 as 10:00 (horario de Sao Paulo).';
+  }
+
+  if (normalized.includes('nao disponivel')) {
+    return 'QR Code nao disponivel para este hospede no momento.';
+  }
+
+  return error || 'Nao foi possivel gerar o QR Code agora. Tente novamente em instantes.';
+};
+
 const parseError = async (response: Response) => {
   try {
     const payload = await response.json();
@@ -118,10 +132,16 @@ export const supabaseService = {
   },
 
   issueQrToken: async (guestId: string): Promise<ServiceResult<{ token: string }>> => {
-    return request<{ token: string }>('/api/issue-qr', {
+    const result = await request<{ token: string }>('/api/issue-qr', {
       method: 'POST',
       body: { guestId },
     });
+
+    if (!result.ok) {
+      return { ok: false, error: toFriendlyIssueQrError(result.error) };
+    }
+
+    return result;
   },
 
   consumeQrToken: async (
