@@ -188,7 +188,12 @@ export default async function handler(req: any, res: any) {
 
       const alreadyUsedToday = normalizeConsumptionDate(guest.consumption_date) === today;
       if (alreadyUsedToday) {
-        sendJson(res, 409, { ok: false, error: 'Cafe da manha ja utilizado hoje.' });
+        sendJson(res, 200, {
+          ok: true,
+          success: true,
+          alreadyConsumed: true,
+          data: rowToGuest(guest),
+        });
         return;
       }
 
