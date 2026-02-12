@@ -122,50 +122,64 @@ const Restaurant: React.FC = () => {
 
   const exportToExcel = () => {
     if (filteredGuests.length === 0) return;
-    
-    const data = filteredGuests.map(g => ({
-      'Hóspede': g.name,
-      'Apartamento': g.room,
-      'Empresa': g.company,
-      'Direito Café': g.hasBreakfast ? 'Sim' : 'Não',
-      'Consumido': g.usedToday ? 'Sim' : 'Não',
+    const consumedCount = filteredGuests.filter((g) => g.usedToday).length;
+
+    const data = filteredGuests.map((g) => ({
+      Hospede: g.name,
+      Apartamento: g.room,
+      Empresa: g.company,
+      'Direito Cafe': g.hasBreakfast ? 'Sim' : 'Nao',
+      Consumido: g.usedToday ? 'Sim' : 'Nao',
       'Data Hora': g.consumptionDate || '-',
-      'Saída Prevista': g.checkOut
+      'Saida Prevista': g.checkOut,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
+    const summarySheet = XLSX.utils.aoa_to_sheet([
+      ['Resumo do Relatorio'],
+      ['Total de registros', filteredGuests.length],
+      ['Ja utilizaram cafe', consumedCount],
+      ['Ainda nao utilizaram cafe', filteredGuests.length - consumedCount],
+      ['Gerado em', new Date().toLocaleString('pt-BR')],
+    ]);
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Monitor_Restaurante");
-    
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumo');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Monitor_Restaurante');
+
+    summarySheet['!cols'] = [{ wch: 30 }, { wch: 24 }];
+
     XLSX.writeFile(workbook, `restaurante_monitor_${new Date().toISOString().split('T')[0]}.xlsx`);
     setIsExportMenuOpen(false);
   };
-
   const exportToPDF = () => {
     if (filteredGuests.length === 0) return;
+    const consumedCount = filteredGuests.filter((g) => g.usedToday).length;
 
     const doc = new jsPDF();
     const today = new Date().toLocaleString('pt-BR');
 
     doc.setFontSize(18);
-    doc.text('Relatório Diário - Restaurante', 14, 20);
-    
+    doc.text('Relatorio Diario - Restaurante', 14, 20);
+
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Data de Emissão: ${today}`, 14, 28);
+    doc.text(`Data de Emissao: ${today}`, 14, 28);
+    doc.text(`Total de registros: ${filteredGuests.length}`, 14, 33);
+    doc.text(`Ja utilizaram cafe: ${consumedCount}`, 14, 38);
 
-    const tableData = filteredGuests.map(g => [
+    const tableData = filteredGuests.map((g) => [
       g.name,
       g.room,
-      g.hasBreakfast ? 'Sim' : 'Não',
-      g.usedToday ? 'Sim' : 'Não',
-      g.checkOut
+      g.hasBreakfast ? 'Sim' : 'Nao',
+      g.usedToday ? 'Sim' : 'Nao',
+      g.checkOut,
     ]);
 
     (doc as any).autoTable({
       head: [['Nome', 'Quarto', 'Direito', 'Status', 'Check-out']],
       body: tableData,
-      startY: 35,
+      startY: 45,
       theme: 'grid',
       headStyles: { fillColor: [51, 65, 85], fontSize: 10 },
       styles: { fontSize: 9 },
@@ -174,7 +188,6 @@ const Restaurant: React.FC = () => {
     doc.save(`restaurante_monitor_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsExportMenuOpen(false);
   };
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20">
       <header className="text-center md:text-left">
