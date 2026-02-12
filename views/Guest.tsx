@@ -129,7 +129,7 @@ const GuestView: React.FC = () => {
       if (!issueTokenResult.ok || !issueTokenResult.data?.token) {
         setFeedback({
           type: 'error',
-          message: `Falha ao emitir token seguro do QR: ${issueTokenResult.error || 'token ausente.'}`,
+          message: issueTokenResult.error || 'Nao foi possivel gerar o QR Code agora.',
         });
         return;
       }
