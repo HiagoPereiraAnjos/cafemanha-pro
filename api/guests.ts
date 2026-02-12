@@ -333,7 +333,7 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === 'POST') {
       const parsedBody = await parseJsonBody(req);
-      if (!parsedBody.ok) {
+      if (parsedBody.ok === false) {
         sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
         return;
       }
@@ -481,7 +481,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const parsedBody = await parseJsonBody(req);
-      if (!parsedBody.ok) {
+      if (parsedBody.ok === false) {
         sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
         return;
       }
