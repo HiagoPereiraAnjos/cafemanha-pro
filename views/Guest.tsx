@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import QRCodeLib from 'qrcode';
 import { Search, Coffee, QrCode, ArrowLeft, MapPin, User } from 'lucide-react';
@@ -11,6 +11,9 @@ type Feedback = {
   type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 };
+
+const POLL_BASE_DELAY_MS = 3000;
+const POLL_MAX_DELAY_MS = 30000;
 
 const getRoomFromParams = (searchParams: URLSearchParams) =>
   (
@@ -45,12 +48,17 @@ const GuestView: React.FC = () => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastLookup, setLastLookup] = useState<{
+    room: string;
+    guestId: string;
+  } | null>(null);
 
   const isUsedToday = (guest: PublicGuest) => guest.usedToday;
 
   const clearResult = () => {
     setSelectedGuest(null);
     setQrCodeDataUrl('');
+    setLastLookup(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +93,7 @@ const GuestView: React.FC = () => {
 
       const guest = result.data;
       if (!guest) {
+        setLastLookup(null);
         setFeedback({
           type: 'warning',
           message:
@@ -92,6 +101,11 @@ const GuestView: React.FC = () => {
         });
         return;
       }
+
+      setLastLookup({
+        room: roomValue,
+        guestId: guest.id,
+      });
 
       if (!guest.hasBreakfast) {
         setSelectedGuest(guest);
@@ -142,6 +156,95 @@ const GuestView: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedGuest || !lastLookup) return;
+    if (selectedGuest.usedToday) return;
+
+    let disposed = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let nextDelay = POLL_BASE_DELAY_MS;
+
+    const clearScheduled = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const schedule = (delay: number) => {
+      if (disposed) return;
+      clearScheduled();
+      timeoutId = setTimeout(() => {
+        void tick();
+      }, delay);
+    };
+
+    const tick = async () => {
+      if (disposed) return;
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        schedule(POLL_BASE_DELAY_MS);
+        return;
+      }
+
+      const result = await supabaseService.getGuestsByRoom(lastLookup.room);
+      if (!result.ok) {
+        nextDelay = Math.min(POLL_MAX_DELAY_MS, nextDelay * 2);
+        schedule(nextDelay);
+        return;
+      }
+
+      const updatedGuest = (result.data || []).find((g) => g.id === lastLookup.guestId);
+      if (!updatedGuest) {
+        nextDelay = POLL_BASE_DELAY_MS;
+        schedule(nextDelay);
+        return;
+      }
+
+      if (
+        updatedGuest.id !== selectedGuest.id ||
+        updatedGuest.name !== selectedGuest.name ||
+        updatedGuest.hasBreakfast !== selectedGuest.hasBreakfast ||
+        updatedGuest.usedToday !== selectedGuest.usedToday
+      ) {
+        setSelectedGuest(updatedGuest);
+      }
+      if (updatedGuest.usedToday) {
+        setQrCodeDataUrl('');
+        setFeedback({
+          type: 'success',
+          message: `Leitura confirmada para ${updatedGuest.name}.`,
+        });
+        return;
+      }
+
+      nextDelay = POLL_BASE_DELAY_MS;
+      schedule(nextDelay);
+    };
+
+    const handleVisibilityChange = () => {
+      if (disposed) return;
+      if (document.visibilityState === 'visible') {
+        nextDelay = POLL_BASE_DELAY_MS;
+        schedule(0);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    schedule(POLL_BASE_DELAY_MS);
+
+    return () => {
+      disposed = true;
+      clearScheduled();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [lastLookup, selectedGuest]);
 
   // Backward compatibility for old room QR links.
   if (roomFromLegacyUrl) {
@@ -235,6 +338,9 @@ const GuestView: React.FC = () => {
           <p className="text-slate-500">
             Quarto: <span className="font-bold text-slate-800">{room.trim() || '-'}</span>
           </p>
+          {!qrCodeDataUrl && selectedGuest.usedToday && (
+            <p className="text-emerald-700 font-semibold mt-2">Consumo confirmado hoje.</p>
+          )}
 
           {qrCodeDataUrl && (
             <>
@@ -267,3 +373,4 @@ const GuestView: React.FC = () => {
 };
 
 export default GuestView;
+
