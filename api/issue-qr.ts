@@ -1,5 +1,5 @@
 import { generateQrToken } from './lib/qrToken.js';
-import { getTodaySaoPaulo } from './lib/date.js';
+import { getTodaySaoPaulo, isQrIssuanceWindowOpen } from './lib/date.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { createSupabaseAdminClient, normalizeIdValue } from './lib/supabaseAdmin.js';
 import { parseJsonBody } from './lib/request.js';
@@ -8,6 +8,10 @@ type GuestStatusRow = {
   id: string | number;
   has_breakfast: boolean | null;
   consumption_date: string | null;
+};
+
+type IssueQrRequestBody = {
+  guestId?: unknown;
 };
 
 const sendJson = (res: any, statusCode: number, payload: unknown) => {
@@ -61,8 +65,8 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  const parsedBody = await parseJsonBody(req);
-  if (!parsedBody.ok) {
+  const parsedBody = await parseJsonBody<IssueQrRequestBody>(req);
+  if (parsedBody.ok === false) {
     sendJson(res, parsedBody.statusCode, { ok: false, error: parsedBody.error });
     return;
   }
@@ -74,8 +78,17 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  if (!isQrIssuanceWindowOpen()) {
+    sendJson(res, 403, {
+      ok: false,
+      error:
+        'Geracao de QR disponivel de segunda a sabado das 06:00 as 10:00 e aos domingos das 07:00 as 10:00 (America/Sao_Paulo).',
+    });
+    return;
+  }
+
   const server = createSupabaseAdminClient();
-  if (!server.ok) {
+  if (server.ok === false) {
     sendJson(res, 500, { ok: false, error: server.error });
     return;
   }
