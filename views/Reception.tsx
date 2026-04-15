@@ -261,11 +261,11 @@ const Reception: React.FC = () => {
     const consumedCount = filteredGuests.filter((g) => g.usedToday).length;
 
     const data = filteredGuests.map(g => ({
-      'Nome do HÃ³spede': g.name,
+      'Nome do Hóspede': g.name,
       'Quarto': g.room,
       'Empresa': g.company,
-      'Direito ao CafÃ©': g.hasBreakfast ? 'Sim' : 'NÃ£o',
-      'Consumido Hoje': g.usedToday ? 'Sim' : 'NÃ£o',
+      'Direito ao Café': g.hasBreakfast ? 'Sim' : 'Não',
+      'Consumido Hoje': g.usedToday ? 'Sim' : 'Não',
       'Data do Consumo': g.consumptionDate || '-',
       'Check-out': g.checkOut
     }));
@@ -281,7 +281,7 @@ const Reception: React.FC = () => {
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
-    XLSX.utils.book_append_sheet(workbook, worksheet, "HÃ³spedes");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Hóspedes");
 
     const maxWidths = Object.keys(data[0] || {}).map(key => ({ wch: key.length + 5 }));
     worksheet['!cols'] = maxWidths;
@@ -298,7 +298,7 @@ const Reception: React.FC = () => {
     const today = new Date().toLocaleString('pt-BR');
 
     doc.setFontSize(18);
-    doc.text('RelatÃ³rio de HÃ³spedes - CafÃ© da ManhÃ£', 14, 20);
+    doc.text('Relatório de Hóspedes - Café da Manhã', 14, 20);
 
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -309,13 +309,13 @@ const Reception: React.FC = () => {
     const tableData = filteredGuests.map(g => [
       g.name,
       g.room,
-      g.hasBreakfast ? 'Sim' : 'NÃ£o',
-      g.usedToday ? 'Sim' : 'NÃ£o',
+      g.hasBreakfast ? 'Sim' : 'Não',
+      g.usedToday ? 'Sim' : 'Não',
       g.checkOut
     ]);
 
     (doc as any).autoTable({
-      head: [['Nome', 'Quarto', 'Direito CafÃ©', 'Consumido', 'Check-out']],
+      head: [['Nome', 'Quarto', 'Direito Café', 'Consumido', 'Check-out']],
       body: tableData,
       startY: 45,
       theme: 'striped',
