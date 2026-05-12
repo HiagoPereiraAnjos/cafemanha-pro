@@ -28,14 +28,14 @@ export const createSupabaseAdminClient = (): SupabaseAdminClientResult => {
   if (!url) {
     return {
       ok: false,
-      error: 'SUPABASE_URL nao configurada no backend.',
+      error: 'SUPABASE_URL não configurada no backend.',
     };
   }
 
   if (!serviceRoleKey) {
     return {
       ok: false,
-      error: 'SUPABASE_SERVICE_ROLE_KEY nao configurada no backend.',
+      error: 'SUPABASE_SERVICE_ROLE_KEY não configurada no backend.',
     };
   }
 

@@ -43,7 +43,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'POST') {
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
     return;
   }
 
@@ -75,7 +75,7 @@ export default async function handler(req: any, res: any) {
   const password = String(body?.password || '');
 
   if (!isRoleKey(roleRaw)) {
-    sendJson(res, 400, { ok: false, error: 'Perfil invalido.' });
+    sendJson(res, 400, { ok: false, error: 'Perfil inválido.' });
     return;
   }
 
@@ -85,7 +85,7 @@ export default async function handler(req: any, res: any) {
   if (!expectedPassword) {
     sendJson(res, 500, {
       ok: false,
-      error: `Senha do perfil ${roleRaw} nao configurada no servidor.`,
+      error: `Senha do perfil ${roleRaw} não configurada no servidor.`,
     });
     return;
   }
@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
   if (!sessionSecret) {
     sendJson(res, 500, {
       ok: false,
-      error: 'AUTH_SESSION_SECRET nao configurada no backend.',
+      error: 'AUTH_SESSION_SECRET não configurada no backend.',
     });
     return;
   }

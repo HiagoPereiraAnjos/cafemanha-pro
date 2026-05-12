@@ -44,12 +44,12 @@ const splitSignedToken = (token: string): [string, string] | null => {
 export const generateQrToken = (guestId: string) => {
   const normalizedGuestId = String(guestId || '').trim();
   if (!normalizedGuestId) {
-    throw new Error('guestId obrigatorio para gerar token.');
+    throw new Error('guestId obrigatório para gerar token.');
   }
 
   const secret = resolveSecret();
   if (!secret) {
-    throw new Error('AUTH_SESSION_SECRET nao configurada no backend.');
+    throw new Error('AUTH_SESSION_SECRET não configurada no backend.');
   }
 
   const payload: QrTokenPayload = {

@@ -13,7 +13,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'POST') {
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
     return;
   }
 

@@ -1,11 +1,11 @@
 # Hotel Breakfast Control Pro
 
-Aplicacao web para controle de cafe da manha em hotel, com fluxo para:
+Aplicação web para controle de café da manhã em hotel, com fluxo para:
 
-- recepcao importar e cadastrar hospedes
-- hospede gerar QR Code
+- recepção importar e cadastrar hóspedes
+- hóspede gerar QR Code
 - restaurante validar consumo
-- persistencia de dados no Supabase
+- persistência de dados no Supabase
 
 ## Tecnologias
 
@@ -20,7 +20,7 @@ Aplicacao web para controle de cafe da manha em hotel, com fluxo para:
 - Node.js 18+ (recomendado)
 - npm
 
-## Configuracao
+## Configuração
 
 Crie ou ajuste o arquivo `.env.local` com:
 
@@ -37,7 +37,7 @@ AUTH_SESSION_SECRET=um_segredo_longo_e_aleatorio
 VITE_PUBLIC_BASE_URL=https://cafemanha-pro.vercel.app/
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `AUTH_PASSWORD_*` e `AUTH_SESSION_SECRET` sao backend-only (nao usar prefixo `VITE_`).
+`SUPABASE_SERVICE_ROLE_KEY`, `AUTH_PASSWORD_*` e `AUTH_SESSION_SECRET` são backend-only (não usar prefixo `VITE_`).
 
 ## Rodar localmente
 
@@ -46,7 +46,7 @@ npm install
 npm run dev
 ```
 
-## Build de producao
+## Build de produção
 
 ```bash
 npm run build
@@ -56,12 +56,12 @@ npm run preview
 ## Deploy no Vercel
 
 1. Suba o projeto para o GitHub.
-2. Importe o repositorio no Vercel.
-3. Configure as variaveis de ambiente acima no projeto da Vercel.
-4. Faca deploy.
+2. Importe o repositório no Vercel.
+3. Configure as variáveis de ambiente acima no projeto da Vercel.
+4. Faça deploy.
 
 ## Fluxos principais
 
-- Recepcao: importa planilha e salva hospedes no banco
-- Hospede: informa quarto/nome ou acessa link do quarto para gerar QR individual
-- Validar: leitura do QR e atualizacao de status para utilizado
+- Recepção: importa planilha e salva hóspedes no banco
+- Hóspede: informa quarto/nome ou acessa link do quarto para gerar QR individual
+- Validar: leitura do QR e atualização de status para utilizado

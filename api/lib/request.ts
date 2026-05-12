@@ -15,7 +15,7 @@ export type ParseJsonBodyResult<T = any> = ParseJsonBodySuccess<T> | ParseJsonBo
 
 class BodyTooLargeError extends Error {
   constructor() {
-    super('Corpo da requisicao excede o limite permitido.');
+    super('Corpo da requisição excede o limite permitido.');
     this.name = 'BodyTooLargeError';
   }
 }
@@ -73,7 +73,7 @@ export const parseJsonBody = async <T = any>(
       return {
         ok: false,
         statusCode: 413,
-        error: 'Corpo da requisicao excede o limite permitido.',
+        error: 'Corpo da requisição excede o limite permitido.',
       };
     }
 
@@ -88,7 +88,7 @@ export const parseJsonBody = async <T = any>(
       return {
         ok: false,
         statusCode: 400,
-        error: 'Requisicao invalida.',
+        error: 'Requisição inválida.',
       };
     }
   } catch (error: unknown) {
@@ -96,15 +96,14 @@ export const parseJsonBody = async <T = any>(
       return {
         ok: false,
         statusCode: 413,
-        error: 'Corpo da requisicao excede o limite permitido.',
+        error: 'Corpo da requisição excede o limite permitido.',
       };
     }
 
     return {
       ok: false,
       statusCode: 400,
-      error: 'Requisicao invalida.',
+      error: 'Requisição inválida.',
     };
   }
 };
-

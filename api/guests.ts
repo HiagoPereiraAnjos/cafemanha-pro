@@ -177,14 +177,14 @@ const createServerClient = () => {
   if (!url) {
     return {
       ok: false as const,
-      error: 'SUPABASE_URL nao configurada no backend.',
+      error: 'SUPABASE_URL não configurada no backend.',
     };
   }
 
   if (!serviceRoleKey) {
     return {
       ok: false as const,
-      error: 'SUPABASE_SERVICE_ROLE_KEY nao configurada no backend.',
+      error: 'SUPABASE_SERVICE_ROLE_KEY não configurada no backend.',
     };
   }
 
@@ -208,19 +208,19 @@ const requireSession = (
   if (!sessionSecret) {
     sendJson(res, 500, {
       ok: false,
-      error: 'AUTH_SESSION_SECRET nao configurada no backend.',
+      error: 'AUTH_SESSION_SECRET não configurada no backend.',
     });
     return null;
   }
 
   const session = getSessionFromRequest(req, sessionSecret);
   if (!session) {
-    sendJson(res, 401, { ok: false, error: 'Sessao invalida ou expirada.' });
+    sendJson(res, 401, { ok: false, error: 'Sessão inválida ou expirada.' });
     return null;
   }
 
   if (!allowedRoles.includes(session.role)) {
-    sendJson(res, 403, { ok: false, error: 'Perfil sem permissao para esta operacao.' });
+    sendJson(res, 403, { ok: false, error: 'Perfil sem permissão para esta operação.' });
     return null;
   }
 
@@ -413,7 +413,7 @@ export default async function handler(req: any, res: any) {
         if (insertedIds.length === 0) {
           sendJson(res, 500, {
             ok: false,
-            error: 'Falha ao substituir dados: nenhum ID retornado na insercao.',
+            error: 'Falha ao substituir dados: nenhum ID retornado na inserção.',
           });
           return;
         }
@@ -425,11 +425,11 @@ export default async function handler(req: any, res: any) {
           .not('id', 'in', `(${inValues})`);
 
         if (removeOldError) {
-          // Rollback compensatorio para evitar manter dados duplicados em caso de falha parcial.
+          // Rollback compensatório para evitar manter dados duplicados em caso de falha parcial.
           await client.from(table).delete().in('id', insertedIds.map(normalizeIdValue));
           sendJson(res, 400, {
             ok: false,
-            error: `Falha ao concluir substituicao dos dados: ${removeOldError.message}`,
+            error: `Falha ao concluir substituição dos dados: ${removeOldError.message}`,
           });
           return;
         }
@@ -476,7 +476,7 @@ export default async function handler(req: any, res: any) {
 
     if (req.method === 'PATCH') {
       if (!id) {
-        sendJson(res, 400, { ok: false, error: 'Parametro id obrigatorio.' });
+        sendJson(res, 400, { ok: false, error: 'Parâmetro id obrigatório.' });
         return;
       }
 
@@ -520,11 +520,11 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
   } catch (error: any) {
     sendJson(res, 500, {
       ok: false,
-      error: error?.message || 'Erro interno ao processar requisicao.',
+      error: error?.message || 'Erro interno ao processar requisição.',
     });
   }
 }

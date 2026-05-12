@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'POST') {
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
     return;
   }
 
@@ -74,7 +74,7 @@ export default async function handler(req: any, res: any) {
 
   const guestId = String(body?.guestId || '').trim();
   if (!guestId) {
-    sendJson(res, 400, { ok: false, error: 'guestId obrigatorio.' });
+    sendJson(res, 400, { ok: false, error: 'guestId obrigatório.' });
     return;
   }
 
@@ -82,7 +82,7 @@ export default async function handler(req: any, res: any) {
     sendJson(res, 403, {
       ok: false,
       error:
-        'Geracao de QR disponivel de segunda a sabado das 06:00 as 10:00 e aos domingos das 07:00 as 10:00 (America/Sao_Paulo).',
+        'Geração de QR disponível de segunda a sábado das 06:00 às 10:00 e aos domingos das 07:00 às 10:00 (America/Sao_Paulo).',
     });
     return;
   }
@@ -108,19 +108,19 @@ export default async function handler(req: any, res: any) {
 
     const guest = data as GuestStatusRow | null;
     if (!guest) {
-      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
+      sendJson(res, 404, { ok: false, error: 'Não disponível' });
       return;
     }
 
     if (!guest.has_breakfast) {
-      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
+      sendJson(res, 404, { ok: false, error: 'Não disponível' });
       return;
     }
 
     const today = getTodaySaoPaulo();
     const alreadyUsedToday = normalizeConsumptionDate(guest.consumption_date) === today;
     if (alreadyUsedToday) {
-      sendJson(res, 404, { ok: false, error: 'Nao disponivel' });
+      sendJson(res, 404, { ok: false, error: 'Não disponível' });
       return;
     }
 

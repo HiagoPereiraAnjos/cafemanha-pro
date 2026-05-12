@@ -13,7 +13,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'GET') {
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
     return;
   }
 
@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
   if (!sessionSecret) {
     sendJson(res, 500, {
       ok: false,
-      error: 'AUTH_SESSION_SECRET nao configurada no backend.',
+      error: 'AUTH_SESSION_SECRET não configurada no backend.',
     });
     return;
   }

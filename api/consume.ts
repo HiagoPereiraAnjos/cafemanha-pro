@@ -41,19 +41,19 @@ const requireSession = (
   if (!sessionSecret) {
     sendJson(res, 500, {
       ok: false,
-      error: 'AUTH_SESSION_SECRET nao configurada no backend.',
+      error: 'AUTH_SESSION_SECRET não configurada no backend.',
     });
     return null;
   }
 
   const session = getSessionFromRequest(req, sessionSecret);
   if (!session) {
-    sendJson(res, 401, { ok: false, error: 'Sessao invalida ou expirada.' });
+    sendJson(res, 401, { ok: false, error: 'Sessão inválida ou expirada.' });
     return null;
   }
 
   if (!allowedRoles.includes(session.role)) {
-    sendJson(res, 403, { ok: false, error: 'Perfil sem permissao para esta operacao.' });
+    sendJson(res, 403, { ok: false, error: 'Perfil sem permissão para esta operação.' });
     return null;
   }
 
@@ -96,7 +96,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method !== 'POST') {
-    sendJson(res, 405, { ok: false, error: 'Metodo nao permitido.' });
+    sendJson(res, 405, { ok: false, error: 'Método não permitido.' });
     return;
   }
 
@@ -111,7 +111,7 @@ export default async function handler(req: any, res: any) {
 
   const token = String(body?.token || '').trim();
   if (!token) {
-    sendJson(res, 400, { ok: false, error: 'token obrigatorio.' });
+    sendJson(res, 400, { ok: false, error: 'token obrigatório.' });
     return;
   }
 
@@ -119,7 +119,7 @@ export default async function handler(req: any, res: any) {
   if (!confirmed) {
     sendJson(res, 400, {
       ok: false,
-      error: 'Confirmacao obrigatoria para validar consumo.',
+      error: 'Confirmação obrigatória para validar consumo.',
     });
     return;
   }
@@ -131,7 +131,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (!decoded) {
-    sendJson(res, 400, { ok: false, error: 'Token invalido' });
+    sendJson(res, 400, { ok: false, error: 'Token inválido' });
     return;
   }
 
@@ -147,7 +147,7 @@ export default async function handler(req: any, res: any) {
     const guestId = normalizeIdValue(decoded.guestId);
     const today = getTodaySaoPaulo();
 
-    // Atualizacao atomica para evitar dupla validacao em chamadas concorrentes.
+    // Atualização atômica para evitar dupla validação em chamadas concorrentes.
     const { data: updatedRows, error: updateError } = await fromTable()
       .update({
         used_today: true,
@@ -177,12 +177,12 @@ export default async function handler(req: any, res: any) {
 
       const guest = existing as GuestRow | null;
       if (!guest) {
-        sendJson(res, 404, { ok: false, error: 'Hospede nao encontrado.' });
+        sendJson(res, 404, { ok: false, error: 'Hóspede não encontrado.' });
         return;
       }
 
       if (!guest.has_breakfast) {
-        sendJson(res, 400, { ok: false, error: 'Hospede sem direito ao cafe da manha.' });
+        sendJson(res, 400, { ok: false, error: 'Hóspede sem direito ao café da manhã.' });
         return;
       }
 
@@ -199,7 +199,7 @@ export default async function handler(req: any, res: any) {
 
       sendJson(res, 409, {
         ok: false,
-        error: 'Nao foi possivel registrar consumo neste momento.',
+        error: 'Não foi possível registrar consumo neste momento.',
       });
       return;
     }

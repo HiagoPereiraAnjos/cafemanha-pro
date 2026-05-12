@@ -24,7 +24,7 @@ const Navigation: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: '/recepcao', label: 'Recepcao', icon: <LayoutDashboard size={18} /> },
+    { path: '/recepcao', label: 'Recepção', icon: <LayoutDashboard size={18} /> },
     { path: '/restaurante', label: 'Restaurante', icon: <Utensils size={18} /> },
     { path: '/validar', label: 'Validar', icon: <QrCode size={18} /> },
   ];
@@ -89,8 +89,8 @@ const Home: React.FC = () => {
   const cards = [
     {
       path: '/recepcao',
-      title: 'Recepcao',
-      description: 'Importacao da planilha, cadastro manual e sincronizacao com Supabase.',
+      title: 'Recepção',
+      description: 'Importação da planilha, cadastro manual e sincronização com Supabase.',
       icon: <LayoutDashboard size={24} />,
       accent: 'from-blue-600 to-sky-500',
     },
@@ -104,7 +104,7 @@ const Home: React.FC = () => {
     {
       path: '/validar',
       title: 'Validar',
-      description: 'Leitura do QR Code e baixa de uso do cafe da manha.',
+      description: 'Leitura do QR Code e baixa de uso do café da manhã.',
       icon: <QrCode size={24} />,
       accent: 'from-amber-500 to-orange-500',
     },
@@ -123,11 +123,11 @@ const Home: React.FC = () => {
           </span>
 
           <h1 className="mt-4 text-3xl md:text-5xl font-black text-slate-900 leading-tight">
-            Gestao moderna de cafe da manha para hotel
+            Gestão moderna de café da manhã para hotel
           </h1>
 
           <p className="mt-4 text-slate-600 max-w-3xl text-sm md:text-base">
-            Interface otimizada para recepcao e restaurante, com validacao por QR Code e dados
+            Interface otimizada para recepção e restaurante, com validação por QR Code e dados
             centralizados no Supabase.
           </p>
         </div>
