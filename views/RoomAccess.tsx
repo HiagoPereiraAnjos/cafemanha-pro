@@ -163,7 +163,7 @@ const RoomAccess: React.FC = () => {
       setRoomGuests([]);
       setFeedback({
         type: 'error',
-        message: `Falha ao consultar hospedes do quarto ${room}: ${result.error}`,
+        message: `Falha ao consultar hóspedes do quarto ${room}: ${result.error}`,
       });
       setIsLoading(false);
       return;
@@ -175,7 +175,7 @@ const RoomAccess: React.FC = () => {
     if (guests.length === 0) {
       setFeedback({
         type: 'warning',
-        message: `Nenhum hospede encontrado para o quarto ${room}.`,
+        message: `Nenhum hóspede encontrado para o quarto ${room}.`,
       });
     } else {
       setFeedback(null);
@@ -188,7 +188,7 @@ const RoomAccess: React.FC = () => {
     if (!guest.hasBreakfast) {
       setFeedback({
         type: 'warning',
-        message: `${guest.name} nao possui direito ao cafe da manha.`,
+        message: `${guest.name} não possui direito ao café da manhã.`,
       });
       return;
     }
@@ -196,7 +196,7 @@ const RoomAccess: React.FC = () => {
     if (isUsedToday(guest)) {
       setFeedback({
         type: 'warning',
-        message: `O cafe da manha de ${guest.name} ja foi utilizado hoje.`,
+        message: `O café da manhã de ${guest.name} já foi utilizado hoje.`,
       });
       return;
     }
@@ -215,7 +215,7 @@ const RoomAccess: React.FC = () => {
       if (!issueTokenResult.ok || !issueTokenResult.data?.token) {
         setFeedback({
           type: 'error',
-          message: issueTokenResult.error || 'Nao foi possivel gerar o QR Code agora.',
+          message: issueTokenResult.error || 'Não foi possível gerar o QR Code agora.',
         });
         return;
       }
@@ -246,7 +246,7 @@ const RoomAccess: React.FC = () => {
         <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-blue-200">
           <Coffee size={40} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Cafe da Manha</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Café da Manhã</h1>
         <p className="text-slate-500">Selecione seu nome para gerar seu QR individual</p>
       </header>
 
@@ -262,7 +262,7 @@ const RoomAccess: React.FC = () => {
             to="/hospede"
             className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
           >
-            Ir para area do hospede
+            Ir para área do hóspede
           </Link>
         </div>
       )}
@@ -288,7 +288,7 @@ const RoomAccess: React.FC = () => {
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-slate-500">
               <RefreshCw size={18} className="animate-spin" />
-              Carregando hospedes...
+              Carregando hóspedes...
             </div>
           ) : (
             <div className="space-y-3">
@@ -302,8 +302,8 @@ const RoomAccess: React.FC = () => {
                     <div>
                       <div className="font-bold text-slate-800">{guest.name}</div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {guest.hasBreakfast ? 'Cafe incluido' : 'Sem direito ao cafe'}
-                        {used ? ' - Ja utilizado hoje' : ''}
+                        {guest.hasBreakfast ? 'Café incluído' : 'Sem direito ao café'}
+                        {used ? ' - Já utilizado hoje' : ''}
                       </div>
                     </div>
 
@@ -319,7 +319,7 @@ const RoomAccess: React.FC = () => {
               })}
 
               {roomGuests.length === 0 && (
-                <p className="text-sm text-slate-500">Nenhum hospede para este quarto.</p>
+                <p className="text-sm text-slate-500">Nenhum hóspede para este quarto.</p>
               )}
             </div>
           )}
@@ -337,7 +337,7 @@ const RoomAccess: React.FC = () => {
           </h2>
 
           <p className="text-slate-500 mt-2">
-            Hospede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
+            Hóspede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
           </p>
           <p className="text-slate-500">
             Quarto: <span className="font-bold text-slate-800">{roomFromUrl || '-'}</span>
@@ -356,14 +356,14 @@ const RoomAccess: React.FC = () => {
           ) : (
             <Alert
               type="success"
-              message="Este hospede ja foi validado hoje."
+              message="Este hóspede já foi validado hoje."
             />
           )}
 
           {qrCodeDataUrl && (
             <Alert
               type="warning"
-              message="Apresente este QR no restaurante para validar seu cafe."
+              message="Apresente este QR no restaurante para validar seu café."
             />
           )}
 

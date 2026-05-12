@@ -9,6 +9,13 @@ interface Props {
   children: React.ReactNode;
 }
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.RECEPTION]: 'recepção',
+  [UserRole.RESTAURANT]: 'restaurante',
+  [UserRole.GUEST]: 'hóspede',
+  [UserRole.VALIDATOR]: 'validação',
+};
+
 const AuthGuard: React.FC<Props> = ({ role, children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -50,7 +57,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
         <div className="text-center mb-6">
           <div className="text-4xl mb-4">🔒</div>
           <h2 className="text-2xl font-bold text-slate-800">Área Restrita</h2>
-          <p className="text-slate-500 mt-2">Acesso apenas para equipe {role.toLowerCase()}</p>
+          <p className="text-slate-500 mt-2">Acesso apenas para equipe {ROLE_LABELS[role]}</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

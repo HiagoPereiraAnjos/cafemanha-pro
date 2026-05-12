@@ -87,7 +87,7 @@ const GuestView: React.FC = () => {
       if (!result.ok) {
         setFeedback({
           type: 'error',
-          message: `Falha ao consultar hospede no Supabase: ${result.error}`,
+          message: `Falha ao consultar hóspede no Supabase: ${result.error}`,
         });
         return;
       }
@@ -98,7 +98,7 @@ const GuestView: React.FC = () => {
         setFeedback({
           type: 'warning',
           message:
-            'Hospede nao encontrado para este quarto. Confira o nome e tente novamente.',
+            'Hóspede não encontrado para este quarto. Confira o nome e tente novamente.',
         });
         return;
       }
@@ -112,7 +112,7 @@ const GuestView: React.FC = () => {
         setSelectedGuest(guest);
         setFeedback({
           type: 'warning',
-          message: `${guest.name} nao possui direito ao cafe da manha.`,
+          message: `${guest.name} não possui direito ao café da manhã.`,
         });
         return;
       }
@@ -121,7 +121,7 @@ const GuestView: React.FC = () => {
         setSelectedGuest(guest);
         setFeedback({
           type: 'warning',
-          message: `O cafe da manha de ${guest.name} ja foi utilizado hoje.`,
+          message: `O café da manhã de ${guest.name} já foi utilizado hoje.`,
         });
         return;
       }
@@ -139,7 +139,7 @@ const GuestView: React.FC = () => {
       if (!issueTokenResult.ok || !issueTokenResult.data?.token) {
         setFeedback({
           type: 'error',
-          message: issueTokenResult.error || 'Nao foi possivel gerar o QR Code agora.',
+          message: issueTokenResult.error || 'Não foi possível gerar o QR Code agora.',
         });
         return;
       }
@@ -272,7 +272,7 @@ const GuestView: React.FC = () => {
         <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-blue-200">
           <Coffee size={40} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Area do Hospede</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Área do Hóspede</h1>
         <p className="text-slate-500">Informe quarto e nome para gerar seu QR</p>
       </header>
 
@@ -343,7 +343,7 @@ const GuestView: React.FC = () => {
           </h2>
 
           <p className="text-slate-500 mt-2">
-            Hospede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
+            Hóspede: <span className="font-bold text-slate-800">{selectedGuest.name}</span>
           </p>
           <p className="text-slate-500">
             Quarto: <span className="font-bold text-slate-800">{room.trim() || '-'}</span>
@@ -365,7 +365,7 @@ const GuestView: React.FC = () => {
               </div>
               <Alert
                 type="warning"
-                message="Apresente este QR no restaurante para validar seu cafe."
+                message="Apresente este QR no restaurante para validar seu café."
               />
             </>
           )}

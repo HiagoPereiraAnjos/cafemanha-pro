@@ -20,7 +20,7 @@ const weekdayMap: Record<string, number> = {
 };
 
 export const QR_WINDOW_MESSAGE =
-  'O QR Code so pode ser gerado no horario do cafe da manha: de segunda a sabado, das 06:00 as 10:00, e aos domingos, das 07:00 as 10:00 (horario de Sao Paulo).';
+  'O QR Code só pode ser gerado no horário do café da manhã: de segunda a sábado, das 06:00 às 10:00, e aos domingos, das 07:00 às 10:00 (horário de São Paulo).';
 
 export const isQrIssuanceWindowOpen = (date: Date = new Date()) => {
   const parts = clockFormatter.formatToParts(date);
@@ -38,4 +38,3 @@ export const isQrIssuanceWindowOpen = (date: Date = new Date()) => {
 
   return currentMinutes >= openingMinutes && currentMinutes <= closingMinutes;
 };
-

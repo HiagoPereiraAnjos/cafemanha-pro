@@ -272,10 +272,10 @@ const Reception: React.FC = () => {
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const summarySheet = XLSX.utils.aoa_to_sheet([
-      ['Resumo do Relatorio'],
+      ['Resumo do Relatório'],
       ['Total de registros', filteredGuests.length],
-      ['Ja utilizaram cafe', consumedCount],
-      ['Ainda nao utilizaram cafe', filteredGuests.length - consumedCount],
+      ['Já utilizaram café', consumedCount],
+      ['Ainda não utilizaram café', filteredGuests.length - consumedCount],
       ['Gerado em', new Date().toLocaleString('pt-BR')],
     ]);
 
@@ -304,7 +304,7 @@ const Reception: React.FC = () => {
     doc.setTextColor(100);
     doc.text(`Gerado em: ${today}`, 14, 28);
     doc.text(`Total de registros: ${filteredGuests.length}`, 14, 33);
-    doc.text(`Ja utilizaram cafe: ${consumedCount}`, 14, 38);
+    doc.text(`Já utilizaram café: ${consumedCount}`, 14, 38);
 
     const tableData = filteredGuests.map(g => [
       g.name,
@@ -433,14 +433,14 @@ const Reception: React.FC = () => {
           <UserPlus size={20} /> Cadastro Manual
         </h2>
         <p className="text-sm text-slate-500 mb-4">
-          Use este formulario para incluir um hospede que nao veio na planilha.
+          Use este formulário para incluir um hóspede que não veio na planilha.
         </p>
 
         <form onSubmit={handleManualAdd} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
-              placeholder="Nome do hospede *"
+              placeholder="Nome do hóspede *"
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={manualName}
               onChange={(e) => setManualName(e.target.value)}
@@ -496,12 +496,12 @@ const Reception: React.FC = () => {
               onChange={(e) => setManualHasBreakfast(e.target.checked)}
               className="w-4 h-4 rounded border-slate-300"
             />
-            Possui direito ao cafe da manha
+            Possui direito ao café da manhã
           </label>
 
           <div className="flex justify-end">
             <Button type="submit" variant="success" disabled={isSavingManual}>
-              {isSavingManual ? 'Salvando...' : 'Adicionar Hospede'}
+              {isSavingManual ? 'Salvando...' : 'Adicionar Hóspede'}
             </Button>
           </div>
         </form>
@@ -516,7 +516,7 @@ const Reception: React.FC = () => {
                  className={`w-2 h-2 rounded-full ${syncError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}
                ></div>
                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                 {syncError ? 'Falha de sincronizacao' : 'Sincronizado'}
+                 {syncError ? 'Falha de sincronização' : 'Sincronizado'}
                  {lastSyncAt ? ` - ${lastSyncAt}` : ''}
                </span>
             </div>
@@ -529,9 +529,9 @@ const Reception: React.FC = () => {
               className="w-full sm:w-56 px-4 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm"
             >
               <option value="all">Todos os status</option>
-              <option value="with_breakfast">Com cafe</option>
-              <option value="without_breakfast">Sem cafe</option>
-              <option value="used_today">Ja consumiu</option>
+              <option value="with_breakfast">Com café</option>
+              <option value="without_breakfast">Sem café</option>
+              <option value="used_today">Já consumiu</option>
             </select>
 
             <div className="relative group w-full lg:w-80">

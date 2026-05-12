@@ -12,17 +12,20 @@ type RequestOptions = {
 };
 
 const toFriendlyIssueQrError = (error?: string) => {
-  const normalized = String(error || '').toLowerCase();
+  const normalized = String(error || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
   if (normalized.includes('geracao de qr disponivel')) {
-    return 'O QR Code so pode ser gerado no horario do cafe da manha: de segunda a sabado, das 06:00 as 10:00, e aos domingos, das 07:00 as 10:00 (horario de Sao Paulo).';
+    return 'O QR Code só pode ser gerado no horário do café da manhã: de segunda a sábado, das 06:00 às 10:00, e aos domingos, das 07:00 às 10:00 (horário de São Paulo).';
   }
 
   if (normalized.includes('nao disponivel')) {
-    return 'QR Code nao disponivel para este hospede no momento.';
+    return 'QR Code não disponível para este hóspede no momento.';
   }
 
-  return error || 'Nao foi possivel gerar o QR Code agora. Tente novamente em instantes.';
+  return error || 'Não foi possível gerar o QR Code agora. Tente novamente em instantes.';
 };
 
 const parseError = async (response: Response) => {
@@ -52,7 +55,7 @@ const request = async <T>(url: string, options: RequestOptions = {}): Promise<Se
     const data = (payload?.data ?? payload) as T;
     return { ok: true, data };
   } catch {
-    return { ok: false, error: 'Falha de comunicacao com o backend.' };
+    return { ok: false, error: 'Falha de comunicação com o backend.' };
   }
 };
 

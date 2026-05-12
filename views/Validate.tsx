@@ -94,7 +94,7 @@ const Validate: React.FC = () => {
         )
         .catch((err) => {
           console.error(err);
-          setError('Nao foi possivel acessar a camera.');
+          setError('Não foi possível acessar a câmera.');
           scannerRef.current = null;
           setIsScanning(false);
         });
@@ -124,7 +124,7 @@ const Validate: React.FC = () => {
     if (isConfirmingRequestRef.current) return;
 
     if (!token) {
-      setError('Token do QR nao encontrado.');
+      setError('Token do QR não encontrado.');
       return;
     }
 
@@ -167,8 +167,8 @@ const Validate: React.FC = () => {
   return (
     <div className="max-w-md mx-auto space-y-6 pb-24">
       <header className="text-center">
-        <h1 className="text-2xl font-bold text-slate-800">Validador de Cafe</h1>
-        <p className="text-slate-500">Aponte a camera ou use o link do QR Code</p>
+        <h1 className="text-2xl font-bold text-slate-800">Validador de Café</h1>
+        <p className="text-slate-500">Aponte a câmera ou use o link do QR Code</p>
       </header>
 
       {!token && !isScanning && (
@@ -179,11 +179,11 @@ const Validate: React.FC = () => {
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-slate-800">Aguardando Leitura</h2>
             <p className="text-slate-500">
-              Use a camera do celular ou o leitor integrado abaixo para validar um hospede.
+              Use a câmera do celular ou o leitor integrado abaixo para validar um hóspede.
             </p>
           </div>
           <Button onClick={startScanner} className="w-full py-4 flex items-center justify-center gap-2">
-            <Camera size={20} /> Abrir Camera do Sistema
+            <Camera size={20} /> Abrir Câmera do Sistema
           </Button>
         </div>
       )}
@@ -202,7 +202,7 @@ const Validate: React.FC = () => {
           <div className="text-rose-500 mb-4 flex justify-center">
             <ShieldCheck size={64} className="opacity-20" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">Erro na Validacao</h2>
+          <h2 className="text-xl font-bold text-slate-800">Erro na Validação</h2>
           <p className="text-slate-500 mt-2 mb-6">{error}</p>
           <Button className="w-full" onClick={handleReset}>
             Tentar Novamente
@@ -225,7 +225,7 @@ const Validate: React.FC = () => {
               onClick={confirmConsumption}
               disabled={isConfirming}
             >
-              {isConfirming ? 'Validando...' : 'Confirmar Cafe da Manha'}
+              {isConfirming ? 'Validando...' : 'Confirmar Café da Manhã'}
             </Button>
             <Button className="w-full" variant="secondary" onClick={handleReset}>
               Cancelar
@@ -245,7 +245,7 @@ const Validate: React.FC = () => {
             {guest && (
               <div className="grid grid-cols-2 gap-4 text-left">
                 <div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hospede</div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hóspede</div>
                   <div className="font-bold text-slate-800 truncate">{guest.name}</div>
                 </div>
                 <div>
@@ -257,7 +257,7 @@ const Validate: React.FC = () => {
 
             <Alert type="success" message="Registro enviado ao Supabase com sucesso." />
             <Button className="w-full" variant="primary" onClick={handleReset}>
-              Proxima Leitura
+              Próxima Leitura
             </Button>
           </div>
         </div>

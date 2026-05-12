@@ -19,7 +19,7 @@ const Restaurant: React.FC = () => {
   const loadData = async (): Promise<boolean> => {
     const result = await supabaseService.getGuests();
     if (!result.ok) {
-      setSyncError(`Falha na sincronizacao com Supabase: ${result.error}`);
+      setSyncError(`Falha na sincronização com Supabase: ${result.error}`);
       return false;
     }
 
@@ -103,10 +103,10 @@ const Restaurant: React.FC = () => {
       {syncError && <Alert type="error" message={syncError} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Ocupacao Total" value={stats.totalGuests} icon={<Users size={24} />} />
+        <StatCard label="Ocupação Total" value={stats.totalGuests} icon={<Users size={24} />} />
         <StatCard label="Quartos na Casa" value={stats.totalRooms} icon={<DoorClosed size={24} />} />
-        <StatCard label="Direito ao Cafe" value={stats.withBreakfast} icon={<Coffee size={24} />} />
-        <StatCard label="Refeicoes Servidas" value={stats.usedTodayCount} icon={<CheckCircle2 size={24} />} />
+        <StatCard label="Direito ao Café" value={stats.withBreakfast} icon={<Coffee size={24} />} />
+        <StatCard label="Refeições Servidas" value={stats.usedTodayCount} icon={<CheckCircle2 size={24} />} />
       </div>
 
       <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
@@ -116,7 +116,7 @@ const Restaurant: React.FC = () => {
           <div className="flex justify-between items-center pb-4 border-b">
             <div>
               <div className="font-bold text-slate-800">Progresso do Dia</div>
-              <div className="text-sm text-slate-500">Hospedes servidos vs. total com direito</div>
+              <div className="text-sm text-slate-500">Hóspedes servidos vs. total com direito</div>
             </div>
             <div className="text-right">
               <div className="text-2xl font-black text-blue-600">

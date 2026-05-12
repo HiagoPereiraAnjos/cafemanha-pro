@@ -8,6 +8,13 @@ interface Props {
   children: React.ReactNode;
 }
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.RECEPTION]: 'recepção',
+  [UserRole.RESTAURANT]: 'restaurante',
+  [UserRole.GUEST]: 'hóspede',
+  [UserRole.VALIDATOR]: 'validação',
+};
+
 const AuthGuard: React.FC<Props> = ({ role, children }) => {
   const [authStatus, setAuthStatus] = useState<
     'checking' | 'authenticated' | 'unauthenticated'
@@ -42,7 +49,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
         }
 
         if (payload?.authenticated && payload?.role && payload.role !== role) {
-          setError('Sessao ativa em outro perfil. Informe a senha deste modulo.');
+          setError('Sessão ativa em outro perfil. Informe a senha deste módulo.');
         }
 
         setAuthStatus('unauthenticated');
@@ -73,7 +80,7 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
 
       const payload = await response
         .json()
-        .catch(() => ({ ok: false, error: 'Resposta invalida do servidor.' }));
+        .catch(() => ({ ok: false, error: 'Resposta inválida do servidor.' }));
 
       if (response.ok && payload?.ok) {
         setAuthStatus('authenticated');
@@ -97,13 +104,13 @@ const AuthGuard: React.FC<Props> = ({ role, children }) => {
           <div className="mb-4 flex justify-center text-slate-700">
             <Lock size={42} strokeWidth={2.2} />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800">Area Restrita</h2>
-          <p className="text-slate-500 mt-2">Acesso apenas para equipe {role.toLowerCase()}</p>
+          <h2 className="text-2xl font-bold text-slate-800">Área Restrita</h2>
+          <p className="text-slate-500 mt-2">Acesso apenas para equipe {ROLE_LABELS[role]}</p>
         </div>
 
         {authStatus === 'checking' ? (
           <div className="py-4 text-center text-slate-500 font-medium">
-            Verificando sessao...
+            Verificando sessão...
           </div>
         ) : (
         <form onSubmit={handleLogin} className="space-y-4">
