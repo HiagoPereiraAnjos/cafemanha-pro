@@ -292,7 +292,7 @@ const GuestView: React.FC = () => {
               required
               value={room}
               onChange={(e) => setRoom(e.target.value)}
-              placeholder="Ex: 101"
+              placeholder="Ex: 0401"
               className="w-full pl-12 pr-5 py-4 rounded-2xl border-2 border-slate-100 focus:border-blue-500 focus:outline-none transition-all text-lg font-bold text-slate-700"
             />
             <MapPin
